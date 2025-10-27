@@ -1,0 +1,7 @@
+services:
+  backend-api:
+    build:
+      context: ./backend-api
+      dockerfile: Dockerfile
+    ports:
+      - "8000:4444"

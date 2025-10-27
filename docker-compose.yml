@@ -1,0 +1,7 @@
+services:
+  backend-api:
+    image: paulgrbr/hivehive-be:latest
+    ports: 
+      - "8000:4444"
+
+  # frontend not implemented yet

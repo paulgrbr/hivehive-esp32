@@ -9,7 +9,7 @@ app.register_blueprint(example_route)
 
 @app.get("/")
 def index():
-    return jsonify(message="Hello HiveHive"), 200
+    return jsonify(message="Hello HiveHive!"), 200
 
 
 # Start server
