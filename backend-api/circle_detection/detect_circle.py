@@ -63,3 +63,5 @@ def detect_circles(image_path):
 
     else:
         print("Keine Kreise gefunden.")
+
+    return results

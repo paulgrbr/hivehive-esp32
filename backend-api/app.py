@@ -33,9 +33,14 @@ def upload_image():
     file_path = os.path.join(app.config["UPLOAD_FOLDER"], filename)
     image.save(file_path)
 
-    detect_circles(file_path)
+    circles = detect_circles(file_path)
 
-    return jsonify({"message": f"Image {filename} uploaded successfully"}), 200
+    return (
+        jsonify(
+            {"message": f"Image {filename} uploaded successfully", "circles": circles}
+        ),
+        200,
+    )
 
 
 # Start server
