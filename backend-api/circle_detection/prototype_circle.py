@@ -2,7 +2,7 @@ import cv2
 import numpy as np
 
 # Bild laden
-img = cv2.imread("./circle-detection/images/Bild.jpg")
+img = cv2.imread("./backend-api/circle_detection/images/Bild.jpg")
 
 gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 gray = cv2.medianBlur(gray, 5)
@@ -16,7 +16,7 @@ circles = cv2.HoughCircles(
     param1=85,  # Canny-Edge-Parameter
     param2=85,  # Empfindlichkeit: kleiner -> mehr Kreise
     minRadius=5,
-    maxRadius=10000,
+    maxRadius=500,
 )
 
 if circles is not None:
@@ -51,8 +51,11 @@ if circles is not None:
     for res in results:
         print(res)
 
-    cv2.imshow("Ergebnisse", img)
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()
+    # Originalbild und das neue Bild speichern
+    cv2.imwrite("./backend-api/circle_detection/images/Bild_ergebnis.jpg", img)
+    # cv2.imshow("Ergebnisse", img)
+    # cv2.waitKey(0)
+    # cv2.destroyAllWindows()
+
 else:
     print("Keine Kreise gefunden.")
