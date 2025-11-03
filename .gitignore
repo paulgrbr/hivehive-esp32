@@ -216,3 +216,6 @@ __marimo__/
 .streamlit/secrets.toml
 backend-api/.DS_Store
 .python-version
+
+# Images generated during circle detection
+backend-api/circle_detection/images/*

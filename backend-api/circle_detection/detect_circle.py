@@ -1,7 +1,9 @@
+import cv2
+import numpy as np
+import os
+
+
 def detect_circles(image_path):
-    import cv2
-    import numpy as np
-    import os
 
     img = cv2.imread(image_path)
 
@@ -40,7 +42,8 @@ def detect_circles(image_path):
             fill_state = "gefüllt" if filled else "ungefüllt"
 
             results.append(
-                {"x": int(x), "y": int(y), "radius": int(r), "status": fill_state}
+                {"x": int(x), "y": int(y), "radius": int(
+                    r), "status": fill_state}
             )
 
             # Visualisierung
@@ -52,11 +55,6 @@ def detect_circles(image_path):
         for res in results:
             print(res)
 
-        # Originalbild und das neue Bild speichern
-        output_path = os.path.join(
-            os.path.dirname(__file__), "images", "Bild_ergebnis.jpg"
-        )
-        cv2.imwrite(output_path, img)
         # cv2.imshow("Ergebnisse", img)
         # cv2.waitKey(0)
         # cv2.destroyAllWindows()
@@ -64,4 +62,4 @@ def detect_circles(image_path):
     else:
         print("Keine Kreise gefunden.")
 
-    return results
+    return results, img
