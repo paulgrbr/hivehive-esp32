@@ -1,8 +1,9 @@
-from flask import Blueprint, Response
+import threading
 import time
 from io import BytesIO
+
+from flask import Blueprint, Response
 from PIL import Image
-import threading
 
 preview_route = Blueprint("preview", __name__, url_prefix="/preview")
 
@@ -66,11 +67,13 @@ def stream():
             yield (
                 b"--" + boundary.encode() + b"\r\n"
                 b"Content-Type: image/jpeg\r\n"
-                b"Content-Length: " + str(len(jpg)).encode() + b"\r\n\r\n" +
-                jpg + b"\r\n"
+                b"Content-Length: "
+                + str(len(jpg)).encode()
+                + b"\r\n\r\n"
+                + jpg
+                + b"\r\n"
             )
 
     return Response(
-        multipart(),
-        mimetype=f"multipart/x-mixed-replace; boundary={boundary}"
+        multipart(), mimetype=f"multipart/x-mixed-replace; boundary={boundary}"
     )

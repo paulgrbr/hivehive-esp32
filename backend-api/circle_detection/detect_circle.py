@@ -1,6 +1,5 @@
 import cv2
 import numpy as np
-import os
 
 
 def detect_circles(image_path):
@@ -48,8 +47,7 @@ def detect_circles(image_path):
             fill_state = "filled" if filled else "unfilled"
 
             results.append(
-                {"x": int(x), "y": int(y), "radius": int(
-                    r), "status": fill_state}
+                {"x": int(x), "y": int(y), "radius": int(r), "status": fill_state}
             )
 
             # Visualization

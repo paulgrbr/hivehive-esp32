@@ -1,7 +1,9 @@
-from flask import Flask, jsonify, request
-from routes.preview import preview_route, push_frame
 import os
+
+from flask import Flask, jsonify, request
+
 from circle_detection.detect_circle import detect_circles
+from routes.preview import preview_route, push_frame
 
 app = Flask(__name__)
 
@@ -28,10 +30,9 @@ def upload_image():
 
     circles, result_img = detect_circles(file_path)
     push_frame(result_img)
-    return jsonify({
-        "message": f"Image {image.filename} uploaded successfully",
-        "circles": circles
-    }), 200
+    return jsonify(
+        {"message": f"Image {image.filename} uploaded successfully", "circles": circles}
+    ), 200
 
 
 if __name__ == "__main__":
