@@ -1,4 +1,5 @@
 #include "esp_camera.h"
+#include "esp_wifi.h"
 #include "esp_init.h"
 #include <Arduino.h>
 #include <WiFi.h>
@@ -105,7 +106,7 @@ void initEspCamera(framesize_t framesize) {
   config.fb_count = 1;
 
   if (psramFound()) {
-    config.jpeg_quality = 10;
+    config.jpeg_quality = 12;
     config.fb_count = 2;
     config.grab_mode = CAMERA_GRAB_LATEST;
   } else {
@@ -149,6 +150,12 @@ void setupTime() {
   }
 }
 
+void tuneWifiForLatency() {
+  WiFi.setSleep(false);                    // Disable modem sleep (lowers jitter)
+  esp_wifi_set_ps(WIFI_PS_NONE);           // Same idea at IDF level
+  WiFi.setTxPower(WIFI_POWER_19_5dBm);     // Max TX power (if allowed)
+}
+
 void setupWifiConnection(wifi_configuration_t wifi_config) {
   char *ssid = wifi_config.SSID;
   char *pw = wifi_config.PASSWORD;
@@ -163,4 +170,6 @@ void setupWifiConnection(wifi_configuration_t wifi_config) {
 
   Serial.println("---- Setting up local time from NTP servers");
   setupTime();
+
+  tuneWifiForLatency();
 }

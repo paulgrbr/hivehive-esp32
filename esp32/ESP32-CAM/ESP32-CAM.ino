@@ -11,7 +11,7 @@
 char *UPLOAD_URL = "https://hivehive-backend.groeber.cloud/upload";
 
 /* constant for now, maybe we can set this dynamic through server later */
-const int CAPTURE_INTERVAL = 5000; // in ms
+const int CAPTURE_INTERVAL = 300; // in ms
 
 int counter = 0;
 
@@ -130,5 +130,5 @@ void loop() {
   Serial.printf("---- next image in %d seconds.\n", CAPTURE_INTERVAL / 1000);
   Serial.printf("-- Finished capturing and posting image %d\n", counter);
 
-  //delay(CAPTURE_INTERVAL);
+  delay(CAPTURE_INTERVAL);
 }

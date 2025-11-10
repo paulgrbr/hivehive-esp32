@@ -129,7 +129,8 @@ int postImage(char *UPLOAD_URL) {
   url_t url = splitUrl(UPLOAD_URL);
   WiFiClientSecure client;
   client.setInsecure();            // TODO: for now insecure w/out verification -> should we add certificate?
-  client.setTimeout(15000);
+  client.setNoDelay(true);         // Disables Nagle (whatever that is but seems to be reducing latency)
+  client.setTimeout(8000);
 
   /*
     Starting TCP connection
@@ -159,13 +160,13 @@ int postImage(char *UPLOAD_URL) {
   /*
     And finally the body with the image (fb) header + data
 
-    Sends chunks of 1024 bytes
+    Sends chunks of 4064 bytes (4 kib)
   */
   unsigned long __t_upload_start = millis();
   client.print(head);
   size_t sent = 0;
   while (sent < fb->len) {
-    size_t chunk = client.write(fb->buf + sent, min((size_t)1024, fb->len - sent));
+    size_t chunk = client.write(fb->buf + sent, min((size_t)4096, fb->len - sent));
     if (chunk == 0) {
 
       // this is only entered if there is an error happening during the connection or a fault with the data
