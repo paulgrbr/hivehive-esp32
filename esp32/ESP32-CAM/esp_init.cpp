@@ -33,6 +33,14 @@
 #error "Pins not set for camera model"
 #endif
 
+/*
+  POSIX timezone + NTP servers
+
+  These are needed to set ESP local time after connecting to WiFi
+*/
+static const char* TZ_EU_CENTRAL = "CET-1CEST,M3.5.0,M10.5.0/3";
+static const char* NTP1 = "pool.ntp.org";
+static const char* NTP2 = "time.google.com";
 
 /*
   we can modify image with this sensor
@@ -120,6 +128,27 @@ void initEspCamera(framesize_t framesize) {
   }
 }
 
+/*
+    Sets local time based on CEST from time servers (pool.ntp.org and time.google.com)
+*/
+void setupTime() {
+  if (WiFi.status() == WL_CONNECTED) {
+    configTzTime(TZ_EU_CENTRAL, NTP1, NTP2);
+
+    struct tm tmcheck;
+    const uint32_t start = millis();
+    while (!getLocalTime(&tmcheck, 500 /*ms timeout*/)) {
+      if (millis() - start > 5000) {
+        Serial.println("------ WARNING: NTP time sync timed out.");
+        Serial.println("------ Could not sync time from NTP servers. Local time will be unavailable.");
+        break;
+      }
+    }
+  } else {
+    Serial.println("------ WiFi not available, could not sync time from NTP servers. Local time will be unavailable.");
+  }
+}
+
 void setupWifiConnection(wifi_configuration_t wifi_config) {
   char *ssid = wifi_config.SSID;
   char *pw = wifi_config.PASSWORD;
@@ -131,4 +160,7 @@ void setupWifiConnection(wifi_configuration_t wifi_config) {
     Serial.print(".");
   }
   Serial.printf("\n---- Connected. IP: %s\n", WiFi.localIP().toString().c_str());
+
+  Serial.println("---- Setting up local time from NTP servers");
+  setupTime();
 }

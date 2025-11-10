@@ -6,7 +6,6 @@
 #include <WifiClientSecure.h>
 #include <Arduino.h>
 
-
 /*
   Extracts
     - host
@@ -15,6 +14,7 @@
   from a given URL and sets it to the Url struct.
 */
 static url_t splitUrl(const char* urlChars) {
+  unsigned long __t_parse_url_start = millis();
   url_t url;
   
   /* default port + path if given URL does not contain any */
@@ -60,6 +60,9 @@ static url_t splitUrl(const char* urlChars) {
       url.host = host;
   }
 
+  unsigned long __t_parse_url_end = millis();
+  Serial.println(String("---- parse url took ") + String((__t_parse_url_end - __t_parse_url_start) / 1000.0f, 3) + " seconds");
+
   return url;
 }
 
@@ -67,20 +70,32 @@ static url_t splitUrl(const char* urlChars) {
   Creates unique filename of format: esp_capture_YYYYMMDDhhmmss.jpg
 */
 String createFileName() {
+  unsigned long __t_create_filename_start = millis();
+
   struct tm timeinfo;
-  if (!getLocalTime(&timeinfo)) {
-    return "esp_capture_unknown.jpg";
+  bool localTimeAvailable = getLocalTime(&timeinfo, 200); /* up to 200ms timeout for getting the local tikme */
+
+  char buf[64];
+  if (localTimeAvailable) {
+    snprintf(buf, sizeof(buf),
+             "esp_capture_%04d%02d%02d_%02d%02d%02d.jpg",
+             timeinfo.tm_year + 1900,
+             timeinfo.tm_mon + 1,
+             timeinfo.tm_mday,
+             timeinfo.tm_hour,
+             timeinfo.tm_min,
+             timeinfo.tm_sec);
+  } else {
+    /* Fallback if local time not available: add millis (miliseconds since boot) so names stay unique */
+    snprintf(buf, sizeof(buf), "esp_capture_unknown_%lu.jpg", (unsigned long)millis());
+    Serial.println("WARNING: Unable to get local time while creating image filename.");
   }
 
-  char buf[32];
-  snprintf(buf, sizeof(buf),
-           "esp_capture_%04d%02d%02d%02d%02d%02d.jpg",
-           timeinfo.tm_year + 1900,
-           timeinfo.tm_mon + 1,
-           timeinfo.tm_mday,
-           timeinfo.tm_hour,
-           timeinfo.tm_min,
-           timeinfo.tm_sec);
+  Serial.printf("------ file name: %s\n", buf);
+  unsigned long __t_create_filename_end = millis();
+  Serial.println(String("---- create filename took ")
+    + String((__t_create_filename_end - __t_create_filename_start) / 1000.0f, 3)
+    + " seconds");
 
   return String(buf);
 }
@@ -92,16 +107,13 @@ int postImage(char *UPLOAD_URL) {
   /*
     Image is captured through ESP API
   */
-  unsigned long __t_cap_start = millis();
   camera_fb_t *fb = esp_camera_fb_get();
-  unsigned long __t_cap_end = millis();
-  Serial.println(String("---- capture took ") + String((__t_cap_end - __t_cap_start) / 1000.0f, 3) + " seconds");
   if (!fb) { return -1; }
 
   /*
     This little beast creates the HTTP request
   */
-  String filename = createFileName();   // <-- missing semicolon fixed
+  String filename = createFileName();
   const String boundary = "----esp32_boundary";
 
   const String head =

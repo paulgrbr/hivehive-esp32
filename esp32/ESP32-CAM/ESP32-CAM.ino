@@ -29,7 +29,7 @@ void setup() {
       - FRAMESIZE_SXGA      1280 x 1024
       - FRAMESIZE_UXGA      1600 x 1200
   */
-  initEspCamera(FRAMESIZE_SXGA);
+  initEspCamera(FRAMESIZE_SVGA);
 
   Serial.println("[ESP] CONFIGURING CAMERA SENSOR");
   /*
@@ -128,7 +128,7 @@ void loop() {
   }
 
   Serial.printf("---- next image in %d seconds.\n", CAPTURE_INTERVAL / 1000);
-  Serial.println("...");
+  Serial.printf("-- Finished capturing and posting image %d\n", counter);
 
-  delay(CAPTURE_INTERVAL);
+  //delay(CAPTURE_INTERVAL);
 }
