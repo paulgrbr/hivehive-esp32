@@ -87,10 +87,15 @@ String createFileName() {
 
 
 int postImage(char *UPLOAD_URL) {
+  unsigned long __t_all_start = millis();
+
   /*
     Image is captured through ESP API
   */
+  unsigned long __t_cap_start = millis();
   camera_fb_t *fb = esp_camera_fb_get();
+  unsigned long __t_cap_end = millis();
+  Serial.println(String("---- capture took ") + String((__t_cap_end - __t_cap_start) / 1000.0f, 3) + " seconds");
   if (!fb) { return -1; }
 
   /*
@@ -117,25 +122,34 @@ int postImage(char *UPLOAD_URL) {
   /*
     Starting TCP connection
   */
+  unsigned long __t_conn_start = millis();
   if (!client.connect(url.host.c_str(), url.port)) {
+    unsigned long __t_conn_end_fail = millis();
+    Serial.println(String("---- TCP connect took ") + String((__t_conn_end_fail - __t_conn_start) / 1000.0f, 3) + " seconds");
     esp_camera_fb_return(fb);
     return -2;
   }
+  unsigned long __t_conn_end = millis();
+  Serial.println(String("---- TCP connect took ") + String((__t_conn_end - __t_conn_start) / 1000.0f, 3) + " seconds");
 
   /*
     Another beast that creates the POST request header
   */
+  unsigned long __t_hdr_start = millis();
   client.print(String("POST ") + url.path + " HTTP/1.1\r\n");
   client.print(String("Host: ") + url.host + "\r\n");
   client.print("Connection: close\r\n");
   client.print(String("Content-Type: multipart/form-data; boundary=") + boundary + "\r\n");
   client.print(String("Content-Length: ") + contentLength + "\r\n\r\n");
+  unsigned long __t_hdr_end = millis();
+  Serial.println(String("---- POST headers took ") + String((__t_hdr_end - __t_hdr_start) / 1000.0f, 3) + " seconds");
 
   /*
     And finally the body with the image (fb) header + data
 
     Sends chunks of 1024 bytes
   */
+  unsigned long __t_upload_start = millis();
   client.print(head);
   size_t sent = 0;
   while (sent < fb->len) {
@@ -143,6 +157,8 @@ int postImage(char *UPLOAD_URL) {
     if (chunk == 0) {
 
       // this is only entered if there is an error happening during the connection or a fault with the data
+      unsigned long __t_upload_err = millis();
+      Serial.println(String("---- upload (partial) took ") + String((__t_upload_err - __t_upload_start) / 1000.0f, 3) + " seconds");
       client.stop();
       esp_camera_fb_return(fb);
       return -3;
@@ -150,11 +166,17 @@ int postImage(char *UPLOAD_URL) {
     sent += chunk;
   }
   client.print(tail);
+  unsigned long __t_upload_end = millis();
+  Serial.println(String("---- upload took ") + String((__t_upload_end - __t_upload_start) / 1000.0f, 3) + " seconds");
 
   /*
     finally the HTTP response
   */
+  unsigned long __t_resp_wait_start = millis();
   String status = client.readStringUntil('\n');
+  unsigned long __t_resp_wait_end = millis();
+  Serial.println(String("---- server response wait took ") + String((__t_resp_wait_end - __t_resp_wait_start) / 1000.0f, 3) + " seconds");
+
   int code = -4;
   if (status.startsWith("HTTP/1.1 ")) code = status.substring(9, 12).toInt();
   client.stop();
@@ -163,5 +185,9 @@ int postImage(char *UPLOAD_URL) {
     ALWAYS free the image from memory otherwise the fun won't last for a long time...
   */
   esp_camera_fb_return(fb);
+
+  unsigned long __t_all_end = millis();
+  Serial.println(String("---- total capture+post took ") + String((__t_all_end - __t_all_start) / 1000.0f, 3) + " seconds");
+
   return code;
 }
