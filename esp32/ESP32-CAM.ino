@@ -8,7 +8,7 @@
 
   Also a port can be specified if necessary.
 */
-char *UPLOAD_URL = "https://hivehive-backend.groeber.cloud/upload";
+char *UPLOAD_URL = "https://**********";
 
 /* constant for now, maybe we can set this dynamic through server later */
 const int CAPTURE_INTERVAL = 300; // in ms
@@ -56,8 +56,8 @@ void setup() {
     -> for mobile hotspot (at least on iOS) go to hotspot settings and enable 'Maximize Compatibility'
   */
   wifi_configuration_t wifi_config;
-  wifi_config.SSID = "Vodafone-CAKE";
-  wifi_config.PASSWORD = "tYsjat-gakke8-kephaw";
+  wifi_config.SSID = "*****";
+  wifi_config.PASSWORD = "*****";
 
   Serial.printf("[ESP] CONFIGURING WIFI CONNECTION TO %s\n", wifi_config.SSID);
   setupWifiConnection(wifi_config);
