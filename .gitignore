@@ -217,5 +217,8 @@ __marimo__/
 backend-api/.DS_Store
 .python-version
 
+# Mac OS filesystem stuff
+.DS_Store
+
 # Images generated during circle detection
 backend-api/circle_detection/images/*
