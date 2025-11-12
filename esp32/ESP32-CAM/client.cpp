@@ -5,6 +5,9 @@
 #include <WiFi.h>
 #include <WifiClientSecure.h>
 #include <Arduino.h>
+#include <ArduinoJson.h>
+
+
 
 /*
   Extracts
@@ -14,7 +17,6 @@
   from a given URL and sets it to the Url struct.
 */
 static url_t splitUrl(const char* urlChars) {
-  unsigned long __t_parse_url_start = millis();
   url_t url;
   
   /* default port + path if given URL does not contain any */
@@ -60,9 +62,8 @@ static url_t splitUrl(const char* urlChars) {
       url.host = host;
   }
 
-  unsigned long __t_parse_url_end = millis();
-  Serial.println(String("---- parse url took ") + String((__t_parse_url_end - __t_parse_url_start) / 1000.0f, 3) + " seconds");
-
+  printf("---- Host: %s, Path: %s, Port %d\n", url.host, url.path, url.port);
+  
   return url;
 }
 
@@ -70,8 +71,6 @@ static url_t splitUrl(const char* urlChars) {
   Creates unique filename of format: esp_capture_YYYYMMDDhhmmss.jpg
 */
 String createFileName() {
-  unsigned long __t_create_filename_start = millis();
-
   struct tm timeinfo;
   bool localTimeAvailable = getLocalTime(&timeinfo, 200); /* up to 200ms timeout for getting the local tikme */
 
@@ -92,23 +91,57 @@ String createFileName() {
   }
 
   Serial.printf("------ file name: %s\n", buf);
-  unsigned long __t_create_filename_end = millis();
-  Serial.println(String("---- create filename took ")
-    + String((__t_create_filename_end - __t_create_filename_start) / 1000.0f, 3)
-    + " seconds");
-
   return String(buf);
 }
 
+/*
+  Extracts information about the circle from the HTTP response, detected by the circle detection running on the server
+*/
+void printResponse(String response) {
+  DynamicJsonDocument doc(1024);
+  DeserializationError error = deserializeJson(doc, response);
+
+  if (error) {
+    Serial.print("JSON parse error: ");
+    Serial.println(error.c_str());
+  } else {
+
+    Serial.println("------------------------- RESPONSE -----------------------------------");
+    Serial.println("------------------------------------------------------------");
+    Serial.printf("--------------------- %d circles found ---------------------\n", doc["circles"].size());
+    Serial.println("------------------------------------------------------------");
+
+    for (int i = 0; i < doc["circles"].size(); i++) {
+      int radius = doc["circles"][i]["radius"];
+      const char* status = doc["circles"][i]["status"];
+      int x = doc["circles"][i]["x"];
+      int y = doc["circles"][i]["y"];
+
+      Serial.printf("--------------------- Circle[%d] radius: %d ---------------------\n", i+1, radius);
+      Serial.printf("--------------------- Circle[%d] status: %s ---------------------\n", i+1, status);
+      Serial.printf("----------------- Circle[%d] position: (%d, %d)------------------\n", i+1, x, y);
+      Serial.println("------------------------------------------------------------");
+    }
+
+    const char* message = doc["message"];
+    Serial.printf("---- Message: %s\n ----\n", message);
+    Serial.println("----------------------------------------------------------------------");
+  }
+}
 
 int postImage(char *UPLOAD_URL) {
   unsigned long __t_all_start = millis();
 
   /*
     Image is captured through ESP API
+
+    flash is activated
   */
+  digitalWrite(4, HIGH);
   camera_fb_t *fb = esp_camera_fb_get();
   if (!fb) { return -1; }
+  delay(100);
+  digitalWrite(4, LOW);
 
   /*
     This little beast creates the HTTP request
@@ -188,8 +221,44 @@ int postImage(char *UPLOAD_URL) {
   unsigned long __t_resp_wait_start = millis();
   String status = client.readStringUntil('\n');
   unsigned long __t_resp_wait_end = millis();
-  Serial.println(String("---- server response wait took ") + String((__t_resp_wait_end - __t_resp_wait_start) / 1000.0f, 3) + " seconds");
 
+
+  // Skip headers
+  while (client.connected()) {
+    String line = client.readStringUntil('\n');
+    if (line == "\r" || line.length() == 0) {
+      // Empty line = end of headers
+      break;
+    }
+  }
+
+  // Read the JSON body
+  String response = "";
+  unsigned long start = millis();
+  while (client.connected() || client.available()) {
+    if (client.available()) {
+      char c = client.read();
+      response += c;
+    } else if (millis() - start > 5000) { // timeout (optional)
+      break;
+    }
+  }
+
+  /*
+  Extract server response JSON to read circle detection output
+  Output is
+
+  circles: [
+
+  ],
+  message: String
+  */
+
+  Serial.println("---- Parse Server JSON response ----");
+  printResponse(response);
+  
+  Serial.println(String("---- server response wait took ") + String((__t_resp_wait_end - __t_resp_wait_start) / 1000.0f, 3) + " seconds");
+  //Serial.printf("------ HTTP response: %s\n", status);
   int code = -4;
   if (status.startsWith("HTTP/1.1 ")) code = status.substring(9, 12).toInt();
   client.stop();

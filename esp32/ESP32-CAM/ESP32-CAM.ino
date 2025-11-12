@@ -15,30 +15,33 @@
 
   Also a port can be specified if necessary.
 */
-#define UPLOAD_URL "https://**********"
+#define UPLOAD_URL "http://hivehive-backend.groeber.cloud/upload"
+//#define UPLOAD_URL "http://192.168.8.216:8000/upload"
 
 /* constant define for now, maybe we can set this dynamic through server later */
-#define CAPTURE_INTERVAL = 300 // in ms
+#define CAPTURE_INTERVAL 300 // in ms
 
 /*
   Set WiFi credentials here.
 
   WiFi must be 2,4 Ghz
 */
-#define WIFI_SSID "<ssid_name>"
-#define WIFI_PASSWORD "12345"
+//#define WIFI_SSID "GL-SFT1200-fd0"
+//#define WIFI_PASSWORD "goodlife"
+#define WIFI_SSID "ianthecake"
+#define WIFI_PASSWORD "axfhT-56hJ"
 
-  /*
-    ESP PINOUT AND CAMERA INITIALIZATION
+/*
+  ESP PINOUT AND CAMERA INITIALIZATION
 
-    Camera resolution can be one of the following ESP framesize types:
-      - FRAMESIZE_QVGA      320 x 240
-      - FRAMESIZE_VGA       640x480
-      - FRAMESIZE_SVGA      800 x 600
-      - FRAMESIZE_SXGA      1280 x 1024
-      - FRAMESIZE_UXGA      1600 x 1200
-  */
-#define RESOLUTION FRAMESIZE_SVGA
+  Camera resolution can be one of the following ESP framesize types:
+    - FRAMESIZE_QVGA      320 x 240
+    - FRAMESIZE_VGA       640x480
+    - FRAMESIZE_SVGA      800 x 600
+    - FRAMESIZE_SXGA      1280 x 1024
+    - FRAMESIZE_UXGA      1600 x 1200
+*/
+#define RESOLUTION FRAMESIZE_VGA
 
 
 /*

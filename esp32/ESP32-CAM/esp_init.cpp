@@ -95,6 +95,7 @@ void initEspCamera(framesize_t framesize) {
   config.pin_pwdn = PWDN_GPIO_NUM;
   config.pin_reset = RESET_GPIO_NUM;
   config.xclk_freq_hz = 20000000;
+  pinMode(LED_GPIO_NUM, OUTPUT);
 
   Serial.println("-- configuring camera");
 
