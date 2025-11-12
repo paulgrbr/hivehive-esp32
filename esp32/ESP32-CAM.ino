@@ -3,21 +3,30 @@
 #include "client.h"
 #include <Arduino.h>
 
+
+
 /*
+ * ------------------------------------------------------------------------------
+ * ESP CONFIGURATION HERE
+ * ------------------------------------------------------------------------------
+
+
   Set endpoint URL here.
 
   Also a port can be specified if necessary.
 */
-char *UPLOAD_URL = "https://**********";
+#define UPLOAD_URL "https://**********"
 
-/* constant for now, maybe we can set this dynamic through server later */
-const int CAPTURE_INTERVAL = 300; // in ms
+/* constant define for now, maybe we can set this dynamic through server later */
+#define CAPTURE_INTERVAL = 300 // in ms
 
-int counter = 0;
+/*
+  Set WiFi credentials here.
 
-void setup() {
-
-  Serial.println("[ESP] INITIALIZING ESP");
+  WiFi must be 2,4 Ghz
+*/
+#define WIFI_SSID "<ssid_name>"
+#define WIFI_PASSWORD "12345"
 
   /*
     ESP PINOUT AND CAMERA INITIALIZATION
@@ -29,7 +38,22 @@ void setup() {
       - FRAMESIZE_SXGA      1280 x 1024
       - FRAMESIZE_UXGA      1600 x 1200
   */
-  initEspCamera(FRAMESIZE_SVGA);
+#define RESOLUTION FRAMESIZE_SVGA
+
+
+/*
+ * ------------------------------------------------------------------------------
+ * PROGRAM LOGIC
+ * ------------------------------------------------------------------------------
+*/
+
+int counter = 0;
+
+void setup() {
+
+  Serial.println("[ESP] INITIALIZING ESP");
+
+  initEspCamera(RESOLUTION);
 
   Serial.println("[ESP] CONFIGURING CAMERA SENSOR");
   /*
@@ -56,8 +80,8 @@ void setup() {
     -> for mobile hotspot (at least on iOS) go to hotspot settings and enable 'Maximize Compatibility'
   */
   wifi_configuration_t wifi_config;
-  wifi_config.SSID = "*****";
-  wifi_config.PASSWORD = "*****";
+  wifi_config.SSID = WIFI_SSID;
+  wifi_config.PASSWORD = WIFI_PASSWORD;
 
   Serial.printf("[ESP] CONFIGURING WIFI CONNECTION TO %s\n", wifi_config.SSID);
   setupWifiConnection(wifi_config);
