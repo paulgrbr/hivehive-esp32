@@ -169,7 +169,6 @@ void setupWifiConnection(wifi_configuration_t wifi_config) {
   }
   Serial.printf("\n---- Connected. IP: %s\n", WiFi.localIP().toString().c_str());
 
-  Serial.println("---- Setting up local time from NTP servers");
   setupTime();
 
   tuneWifiForLatency();

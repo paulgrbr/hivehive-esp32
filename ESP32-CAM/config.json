@@ -1,0 +1,14 @@
+{
+  "NETWORK": {
+    "SSID": "ianthecake",
+    "PASSWORD": "axfhT-56hJ",
+    "UPLOAD_URL": "http://hivehive-backend.groeber.cloud/upload"
+  },
+  "CAMERA": {
+    "CAPTURE_INTERVAL_IN_MS": 300,
+    "RESOLUTION": "VGA",
+    "VERTICAL_FLIP": 1,
+    "BRIGHTNESS": 1,
+    "SATURATION": -1
+  }
+}

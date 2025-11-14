@@ -60,10 +60,7 @@ static url_t splitUrl(const char* urlChars) {
     url.port = host.substring(colon + 1).toInt();
   } else {
       url.host = host;
-  }
-
-  printf("---- Host: %s, Path: %s, Port %d\n", url.host, url.path, url.port);
-  
+  }  
   return url;
 }
 
@@ -96,16 +93,19 @@ String createFileName() {
 
 /*
   Extracts information about the circle from the HTTP response, detected by the circle detection running on the server
+  -> radius
+  -> filled or not filled
+  -> position
 */
 void printResponse(String response) {
   DynamicJsonDocument doc(1024);
   DeserializationError error = deserializeJson(doc, response);
 
   if (error) {
-    Serial.print("JSON parse error: ");
+    Serial.print("------ JSON parse error: ");
     Serial.println(error.c_str());
   } else {
-
+    Serial.println("----------------------------------------------------------------------");
     Serial.println("------------------------- RESPONSE -----------------------------------");
     Serial.println("------------------------------------------------------------");
     Serial.printf("--------------------- %d circles found ---------------------\n", doc["circles"].size());
@@ -124,7 +124,7 @@ void printResponse(String response) {
     }
 
     const char* message = doc["message"];
-    Serial.printf("---- Message: %s\n ----\n", message);
+    Serial.printf("---- Response message: %s\n ----\n", message);
     Serial.println("----------------------------------------------------------------------");
   }
 }
@@ -170,13 +170,13 @@ int postImage(char *UPLOAD_URL) {
   */
   unsigned long __t_conn_start = millis();
   if (!client.connect(url.host.c_str(), url.port)) {
-    unsigned long __t_conn_end_fail = millis();
-    Serial.println(String("---- TCP connect took ") + String((__t_conn_end_fail - __t_conn_start) / 1000.0f, 3) + " seconds");
+    //unsigned long __t_conn_end_fail = millis();
+    //Serial.println(String("---- TCP connect took ") + String((__t_conn_end_fail - __t_conn_start) / 1000.0f, 3) + " seconds");
     esp_camera_fb_return(fb);
     return -2;
   }
   unsigned long __t_conn_end = millis();
-  Serial.println(String("---- TCP connect took ") + String((__t_conn_end - __t_conn_start) / 1000.0f, 3) + " seconds");
+  //Serial.println(String("---- TCP connect took ") + String((__t_conn_end - __t_conn_start) / 1000.0f, 3) + " seconds");
 
   /*
     Another beast that creates the POST request header
@@ -188,7 +188,7 @@ int postImage(char *UPLOAD_URL) {
   client.print(String("Content-Type: multipart/form-data; boundary=") + boundary + "\r\n");
   client.print(String("Content-Length: ") + contentLength + "\r\n\r\n");
   unsigned long __t_hdr_end = millis();
-  Serial.println(String("---- POST headers took ") + String((__t_hdr_end - __t_hdr_start) / 1000.0f, 3) + " seconds");
+  //Serial.println(String("---- POST headers took ") + String((__t_hdr_end - __t_hdr_start) / 1000.0f, 3) + " seconds");
 
   /*
     And finally the body with the image (fb) header + data
@@ -204,7 +204,7 @@ int postImage(char *UPLOAD_URL) {
 
       // this is only entered if there is an error happening during the connection or a fault with the data
       unsigned long __t_upload_err = millis();
-      Serial.println(String("---- upload (partial) took ") + String((__t_upload_err - __t_upload_start) / 1000.0f, 3) + " seconds");
+      //Serial.println(String("---- upload (partial) took ") + String((__t_upload_err - __t_upload_start) / 1000.0f, 3) + " seconds");
       client.stop();
       esp_camera_fb_return(fb);
       return -3;
@@ -213,7 +213,7 @@ int postImage(char *UPLOAD_URL) {
   }
   client.print(tail);
   unsigned long __t_upload_end = millis();
-  Serial.println(String("---- upload took ") + String((__t_upload_end - __t_upload_start) / 1000.0f, 3) + " seconds");
+  //Serial.println(String("---- upload took ") + String((__t_upload_end - __t_upload_start) / 1000.0f, 3) + " seconds");
 
   /*
     finally the HTTP response
@@ -254,10 +254,9 @@ int postImage(char *UPLOAD_URL) {
   message: String
   */
 
-  Serial.println("---- Parse Server JSON response ----");
   printResponse(response);
   
-  Serial.println(String("---- server response wait took ") + String((__t_resp_wait_end - __t_resp_wait_start) / 1000.0f, 3) + " seconds");
+  //Serial.println(String("---- server response wait took ") + String((__t_resp_wait_end - __t_resp_wait_start) / 1000.0f, 3) + " seconds");
   //Serial.printf("------ HTTP response: %s\n", status);
   int code = -4;
   if (status.startsWith("HTTP/1.1 ")) code = status.substring(9, 12).toInt();
@@ -269,7 +268,7 @@ int postImage(char *UPLOAD_URL) {
   esp_camera_fb_return(fb);
 
   unsigned long __t_all_end = millis();
-  Serial.println(String("---- total capture+post took ") + String((__t_all_end - __t_all_start) / 1000.0f, 3) + " seconds");
+  //Serial.println(String("---- total capture+post took ") + String((__t_all_end - __t_all_start) / 1000.0f, 3) + " seconds");
 
   return code;
 }
