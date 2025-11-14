@@ -24,47 +24,30 @@ The resolution is configurable, with a maximum supported resolution of **UXGA (1
 *Note: All ESP configuration is made in the ESP-CAM.ino file.*
 
 ---
-### 2) Wi-Fi Configuration
-Set your Wi-Fi credentials in `ESP-CAM.ino`:
+### 2) ESP configuration
+Edit the config.json to add WiFi credentials, server endpoint URL and addtitional camera settings.
 
-```cpp
-#define SSID "YourNetworkSSID";
-#define wifi_config.PASSWORD "YourNetworkPassword";
-```
+#### Network setup
+- WiFi SSID, password and server upload URL must be set in order for the program to work.
+- The ESP can only connect on 2.4 GHz bandwidth. If your router disabled 2.4 GHz, re-enable it.
+- For a mobile hotspot, enable Maximize Compatibility in hotspot settings to force 2.4 GHz.
+- Port, path or the http(s):// of the upload URL are optional. The given URL will be processed in whatever format to establish the TCP connection.
 
-**Notes**
-- The module must connect on 2.4 GHz. If your router disabled 2.4 GHz, re-enable it.
-- For a mobile hotspot, enable Maximize Compatibility to force 2.4 GHz.
-
-### Camera initialization
-Choose the image resolution by setting the FRAMESIZE argument in initEspCamera().
+#### Camera settings
+Choose the image resolution by setting the RESOLUTION section in config.json to one of the following Strings (casing not important):
 **Available resolutions:**
-  - `FRAMESIZE_QVGA`    320 x 240
-  - `FRAMESIZE_VGA`     640x480
-  - `FRAMESIZE_SVGA`    800 x 600
-  - `FRAMESIZE_SXGA`    1280 x 1024
-  - `FRAMESIZE_UXGA`    1600 x 1200
+  - `"qvga"`    320 x 240
+  - `"vga"`     640x480
+  - `"qxga"`    800 x 600
+  - `"sxga"`    1280 x 1024
+  - `"uxga"`    1600 x 1200
 
-**Example:** Set framesize to VGA:
-```cpp
-#define RESOLUTION FRAMESIZE_VGA
-```
-
-Additional sensor options are made in function `configure_camera_sensor()`.
-Default options for brightness, saturation and vertical flipping of the image are given and can be changed. In the future, more sensor configuration options will be added.
-
-### Upload configuration
-Specify the 'UPLOAD_URL' to the URL desired endpoint:
-```cpp
-#define UPLOAD_URL https://subhost.host.domain:port/path
-```
-
-The port, path or the http(s):// are optional. The given URL will be processed in whatever format to establish the TCP connection.
-
-Set the capture interval to desired pause length between the capture+POST of each image. It is recommended to not set it to 0, to not overload the processor.
-```cpp
-#define CAPTURE_INTERVAL 5000 // in miliseconds, so 5 second pause
-```
+**Note** All camera settings are *optional*. The default settings are:
+- RESOLUTION: VGA
+- CAPTURE_INTERVAL: 300 ms (0.3 seconds)
+- VERTICAL_FLIP: 1 (flipped)
+- BRIGHTNESS: 1
+- SATURATION: -1
 
 ### Compiling and flashing
 - Connect ESP32 to your computer and compile and flash via Arduino IDE

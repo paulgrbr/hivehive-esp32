@@ -34,6 +34,13 @@ framesize_t getResolutionFromString(const String &resolutionString) {
 }
 
 bool loadConfig() {
+  /* DEFAULTS */
+  esp_config.RESOLUTION = FRAMESIZE_VGA;
+  esp_config.CAPTURE_INTERVAL = 300;
+  esp_config.vertical_flip = 1;
+  esp_config.brightness = 1;
+  esp_config.saturation = -1;
+
   if (!SPIFFS.begin(true)) {
     Serial.println("-- SPIFFS mount failed");
     return false;
