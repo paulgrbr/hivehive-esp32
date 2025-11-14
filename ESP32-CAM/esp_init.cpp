@@ -51,6 +51,9 @@ static const char* NTP2 = "time.google.com";
 sensor_t *s;
 int initialized = 0;
 
+/* -------------------------------- */
+/* ---------- CAMERA SETUP ---------- */
+/* -------------------------------- */
 void configure_camera_sensor(int vflip, int brightness, int saturation) {
   if (initialized) {
     s = esp_camera_sensor_get();
@@ -66,13 +69,10 @@ void configure_camera_sensor(int vflip, int brightness, int saturation) {
   }
 }
 
+/* -------------------------------- */
+/* ---------- ESP SETUP ---------- */
+/* -------------------------------- */
 void initEspCamera(framesize_t framesize) {
-
-  Serial.println("-- setting serial output");
-  Serial.begin(115200);
-  Serial.setDebugOutput(true);
-  Serial.println();
-  delay(200);
 
   Serial.println("-- configuring ESP pinout");
   camera_config_t config;
@@ -130,10 +130,13 @@ void initEspCamera(framesize_t framesize) {
   }
 }
 
-/*
-    Sets local time based on CEST from time servers (pool.ntp.org and time.google.com)
-*/
+/* -------------------------------- */
+/* ---------- WIFI SETUP ---------- */
+/* -------------------------------- */
 void setupTime() {
+  /*
+    Sets local time based on CEST from time servers (pool.ntp.org and time.google.com)
+  */
   if (WiFi.status() == WL_CONNECTED) {
     configTzTime(TZ_EU_CENTRAL, NTP1, NTP2);
 
@@ -157,12 +160,10 @@ void tuneWifiForLatency() {
   WiFi.setTxPower(WIFI_POWER_19_5dBm);     // Max TX power (if allowed)
 }
 
-void setupWifiConnection(wifi_configuration_t wifi_config) {
-  char *ssid = wifi_config.SSID;
-  char *pw = wifi_config.PASSWORD;
+void setupWifiConnection(wifi_configuration_t *wifi_config) {
   WiFi.mode(WIFI_STA);
-  WiFi.begin(ssid, pw);
-  Serial.printf("---- connecting to %s", ssid);
+  WiFi.begin(wifi_config->SSID, wifi_config->PASSWORD);
+  Serial.printf("---- connecting to %s", wifi_config->SSID);
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
     Serial.print(".");
@@ -172,4 +173,79 @@ void setupWifiConnection(wifi_configuration_t wifi_config) {
   setupTime();
 
   tuneWifiForLatency();
+}
+
+/* -------------------------------- */
+/* ---------- ESP CONFIG ---------- */
+/* -------------------------------- */
+framesize_t getResolutionFromString(const String &resolutionString) {
+  switch (resolutionString.toLowerCase()) {
+    catch "qvga":
+      return FRAMESIZE_QVGA;
+      break;
+    catch "vga":
+      return FRAMESIZE_VGA;
+      break;
+    catch "svga":
+      return FRAMESIZE_SVGA;
+      break;
+    catch "sxga":
+      return FRAMESIZE_SXGA;
+      break;
+    catch "uxga":
+      return FRAMESIZE_UXGA;
+      break;
+    default:
+      Serial.printf("------ Resolution '%s' is not supported. Using Default resolution VGA.\n", resolutionString);
+      return FRAMESIZE_VGA;
+  }
+}
+
+bool loadConfig(esp_config_t *esp_config) {
+  /* DEFAULTS */
+  esp_config->RESOLUTION = FRAMESIZE_VGA;
+  esp_config->CAPTURE_INTERVAL = 300;
+  esp_config->vertical_flip = 1;
+  esp_config->brightness = 1;
+  esp_config->saturation = -1;
+
+  if (!SPIFFS.begin(true)) {
+    Serial.println("-- SPIFFS mount failed");
+    return false;
+  }
+
+  File file = SPIFFS.open("CONFIG_FILE", "r");
+  if (!file) {
+    Serial.printf("%s not found\n", CONFIG_FILE);
+    return false;
+  }
+
+  StaticJsonDocument<512> esp_config_doc;
+  DeserializationError err = deserializeJson(esp_config_doc, file);
+  file.close();
+  if (err) {
+    Serial.println("JSON parse error");
+    return false;
+  }
+
+  esp_config->wifi_config.SSID = esp_config_doc["NETWORK"]["SSID"];
+  esp_config->wifi_config.PASSWORD = esp_config_doc["NETWORK"]["PASSWORD"];
+  esp_config->UPLOAD_URL = esp_config_doc["NETWORK"]["UPLOAD_URL"];
+  esp_config->CAPTURE_INTERVAL = esp_config_doc["CAMERA"]["CAPTURE_INTERVAL_IN_MS"];
+  esp_config->RESOLUTION = getResolutionFromString(esp_config_doc["CAMERA"]["RESOLUTION"]);
+  esp_config->vertical_flip = esp_config_doc["CAMERA"]["VERTICAL_FLIP"];
+  esp_config->brightness = esp_config_doc["CAMERA"]["BRIGHTNESS"];
+  esp_config->saturation = esp_config_doc["CAMERA"]["SATURATION"];
+  
+  if (!esp_config->wifi_config.SSID) {
+    Serial.println("------ Could not read SSID from config file.");
+    return false;
+  } else if (!esp_config->wifi_config.PASSWORD) {
+    Serial.println("------ Could not read PASSWORD from config file.");
+    return false;
+  } else if (!esp_config->UPLOAD_URL) {
+    Serial.println("------ Could not read UPLOAD_URL from config file.");
+    return false;
+  }
+  return true;
 }

@@ -1,5 +1,6 @@
 #include "esp_camera.h"
 #include "esp_init.h"
+#include "host.h"
 #include "client.h"
 #include <Arduino.h>
 #include <ArduinoJson.h>
@@ -10,78 +11,6 @@
 esp_config_t esp_config;
 int counter = 0;
 
-framesize_t getResolutionFromString(const String &resolutionString) {
-  switch (resolutionString.toLowerCase()) {
-    catch "qvga":
-      return FRAMESIZE_QVGA;
-      break;
-    catch "vga":
-      return FRAMESIZE_VGA;
-      break;
-    catch "svga":
-      return FRAMESIZE_SVGA;
-      break;
-    catch "sxga":
-      return FRAMESIZE_SXGA;
-      break;
-    catch "uxga":
-      return FRAMESIZE_UXGA;
-      break;
-    default:
-      Serial.printf("------ Resolution '%s' is not supported. Using Default resolution VGA.\n", resolutionString);
-      return FRAMESIZE_VGA;
-  }
-}
-
-bool loadConfig() {
-  /* DEFAULTS */
-  esp_config.RESOLUTION = FRAMESIZE_VGA;
-  esp_config.CAPTURE_INTERVAL = 300;
-  esp_config.vertical_flip = 1;
-  esp_config.brightness = 1;
-  esp_config.saturation = -1;
-
-  if (!SPIFFS.begin(true)) {
-    Serial.println("-- SPIFFS mount failed");
-    return false;
-  }
-
-  File file = SPIFFS.open("CONFIG_FILE", "r");
-  if (!file) {
-    Serial.printf("%s not found\n", CONFIG_FILE);
-    return false;
-  }
-
-  StaticJsonDocument<512> esp_config_doc;
-  DeserializationError err = deserializeJson(esp_config_doc, file);
-  file.close();
-  if (err) {
-    Serial.println("JSON parse error");
-    return false;
-  }
-
-  esp_config.wifi_config.SSID = esp_config_doc["NETWORK"]["SSID"];
-  esp_config.wifi_config.PASSWORD = esp_config_doc["NETWORK"]["PASSWORD"];
-  esp_config.UPLOAD_URL = esp_config_doc["NETWORK"]["UPLOAD_URL"];
-  esp_config.CAPTURE_INTERVAL = esp_config_doc["CAMERA"]["CAPTURE_INTERVAL_IN_MS"];
-  esp_config.RESOLUTION = getResolutionFromString(esp_config_doc["CAMERA"]["RESOLUTION"]);
-  esp_config.vertical_flip = esp_config_doc["CAMERA"]["VERTICAL_FLIP"];
-  esp_config.brightness = esp_config_doc["CAMERA"]["BRIGHTNESS"];
-  esp_config.saturation = esp_config_doc["CAMERA"]["SATURATION"];
-  
-  if (!esp_config.wifi_config.SSID) {
-    Serial.println("------ Could not read SSID from config file.");
-    return false;
-  } else if (!esp_config.wifi_config.PASSWORD) {
-    Serial.println("------ Could not read PASSWORD from config file.");
-    return false;
-  } else if (!esp_config.UPLOAD_URL) {
-    Serial.println("------ Could not read UPLOAD_URL from config file.");
-    return false;
-  }
-  return true;
-}
-
 
 /*
  * ------------------------------------------------------------------------------
@@ -89,19 +18,37 @@ bool loadConfig() {
  * ------------------------------------------------------------------------------
 */
 void setup() {
+  Serial.setDebugOutput(true);
+  Serial.println();
+  delay(200);
+
+  /*
+    ESP opens WiFi access point to receive the configuration from user input
+
+    Once connected go to:
+          ==============================
+          ===== http://192.168.4.1 ===== -> ESP softAP() endpoint
+          ==============================
+
+    to type in WiFi credentials, endpoint URL and camera settings
+  */
+  Serial.println("[ESP] OPENING ACCESS POINT");
+  setupAccessPoint();
+
 
   Serial.println("[ESP] INITIALIZING ESP");
 
-  if (!loadConfig()) {
+  if (!loadConfig(*esp_config)) {
     Serial.println("-- Failed to configure ESP");
   }
+
   initEspCamera(RESOLUTION);
   configure_camera_sensor(vflip = vflip,
                           brightness = brightness,
                           saturation = saturation);
 
-  Serial.printf("[ESP] CONFIGURING WIFI CONNECTION TO %s\n", wifi_config.SSID);
-  setupWifiConnection(wifi_config);
+  Serial.printf("[ESP] CONFIGURING WIFI CONNECTION TO %s\n", esp_config.wifi_config.SSID);
+  setupWifiConnection(*esp_config.wifi_config);
 
   Serial.println("[ESP] SETUP COMPLETE");
   Serial.println("");
@@ -116,7 +63,7 @@ void loop() {
   Serial.println("");
   Serial.printf("-- Trying to capture and post image number %d\n", counter++);
 
-  int httpCode = postImage(UPLOAD_URL);
+  int httpCode = postImage(esp_config.UPLOAD_URL);
   if (httpCode == -1) {
     Serial.println("---- Camera error. Could not capture image");
     return;
@@ -165,5 +112,5 @@ void loop() {
 
   Serial.printf("-- Finished capturing and posting image %d\n", counter);
 
-  delay(CAPTURE_INTERVAL);
+  delay(esp_config.CAPTURE_INTERVAL);
 }
