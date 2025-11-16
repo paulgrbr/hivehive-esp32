@@ -3,15 +3,14 @@
 #include <FS.h>
 #include <ArduinoJson.h>
 
-#define HOST_SSID     "ESP32-Access-Point"
-#define HOST_PASSWORD "esp-12345"
+const char *HOST_SSID = "ESP32-Access-Point";
+const char *HOST_PASSWORD = "esp-12345";
 
 WiFiServer server(80); // port 80
 int server_running = 0;
 
 String header;
 
-// values used to prefill the form
 String cfg_ssid           = "";
 String cfg_password       = "";
 String cfg_upload_url     = "";
@@ -65,7 +64,7 @@ String getParam(const String& query, const String& name) {
   -------------------------------------
 */
 void loadConfig() {
-  if (!SPIFFS.exists("/config.json")) {
+  if (!SPIFFS.exists("config.json")) {
     Serial.println("config.json not found, using defaults");
     return;
   }
@@ -193,64 +192,64 @@ void sendConfigForm(WiFiClient &client, bool saved = false) {
 */
 void runAccessPoint() {
   server_running = 1;
-
+  
   while (server_running) {
     WiFiClient client = server.available();
-    if (!client) continue;
+    if (client) {
+      Serial.println("------ SERVER AVAILABLE ------");
+      String currentLine = "";
+      header = "";
 
-    Serial.println("New client");
-    String currentLine = "";
-    header = "";
+      // read HTTP request
+      while (client.connected()) {
+        if (client.available()) {
+          char c = client.read();
+          header += c;
 
-    // read HTTP request
-    while (client.connected()) {
-      if (client.available()) {
-        char c = client.read();
-        header += c;
+          if (c == '\n') {
+            // end of header (blank line)
+            if (currentLine.length() == 0) {
+              // decide what to send based on header
+              int idx = header.indexOf("GET ");
+              int sp  = header.indexOf(' ', idx + 4);
+              String firstLine = header.substring(idx + 4, sp); // e.g. "/save?ssid=..."
 
-        if (c == '\n') {
-          // end of header (blank line)
-          if (currentLine.length() == 0) {
-            // decide what to send based on header
-            int idx = header.indexOf("GET ");
-            int sp  = header.indexOf(' ', idx + 4);
-            String firstLine = header.substring(idx + 4, sp); // e.g. "/save?ssid=..."
+              if (firstLine.startsWith("/save?")) {
+                String query = firstLine.substring(String("/save?").length());
 
-            if (firstLine.startsWith("/save?")) {
-              String query = firstLine.substring(String("/save?").length());
+                cfg_ssid        = getParam(query, "ssid");
+                cfg_password    = getParam(query, "password");
+                cfg_upload_url  = getParam(query, "upload");
 
-              cfg_ssid        = getParam(query, "ssid");
-              cfg_password    = getParam(query, "password");
-              cfg_upload_url  = getParam(query, "upload");
+                cfg_interval_ms = getParam(query, "interval").toInt();
+                cfg_resolution  = getParam(query, "res");
+                cfg_vflip       = getParam(query, "vflip").toInt();
+                cfg_brightness  = getParam(query, "bright").toInt();
+                cfg_saturation  = getParam(query, "sat").toInt();
 
-              cfg_interval_ms = getParam(query, "interval").toInt();
-              cfg_resolution  = getParam(query, "res");
-              cfg_vflip       = getParam(query, "vflip").toInt();
-              cfg_brightness  = getParam(query, "bright").toInt();
-              cfg_saturation  = getParam(query, "sat").toInt();
+                saveConfig();
+                sendConfigForm(client, true);
 
-              saveConfig();
-              sendConfigForm(client, true);
+                // after saving once, stop AP and continue setup()
+                server_running = 0;
+              } else {
+                // default: show form
+                sendConfigForm(client, false);
+              }
 
-              // after saving once, stop AP and continue setup()
-              server_running = 0;
+              break;
             } else {
-              // default: show form
-              sendConfigForm(client, false);
+              currentLine = "";
             }
-
-            break; // exit inner while(client.connected())
-          } else {
-            currentLine = "";
+          } else if (c != '\r') {
+            currentLine += c;
           }
-        } else if (c != '\r') {
-          currentLine += c;
         }
       }
     }
 
     client.stop();
-    Serial.println("Client disconnected");
+    //Serial.println("Client not connected");
   }
 
   Serial.println("Exiting runAccessPoint()");
@@ -262,15 +261,22 @@ void setupAccessPoint() {
     Serial.println("SPIFFS mount failed");
   }
 
-  // loads existing config.json (if any) to prefill form
   loadConfig();
 
   Serial.println("-- Setting Access Point");
-  WiFi.softAP(HOST_SSID, HOST_PASSWORD);
+  WiFi.mode(WIFI_AP_STA);
+  bool ok = WiFi.softAP(HOST_SSID, HOST_PASSWORD, 1, 0);
+  if (!ok) {
+    Serial.println("!!! WiFi.softAP FAILED");
+  } else {
+    Serial.println("AP started OK");
+  }
+
+  WiFi.begin();
 
   IPAddress IP = WiFi.softAPIP();
   Serial.print("---- AccessPoint IP: ");
-  Serial.println(IP);
+  Serial.print(IP);
 
   server.begin();
   runAccessPoint();

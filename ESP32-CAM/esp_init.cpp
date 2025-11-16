@@ -2,6 +2,9 @@
 #include "esp_wifi.h"
 #include "esp_init.h"
 #include <Arduino.h>
+#include <ArduinoJson.h>
+#include <FS.h>
+#include <SPIFFS.h>
 #include <WiFi.h>
 
 /* 
@@ -44,23 +47,22 @@ static const char* NTP1 = "pool.ntp.org";
 static const char* NTP2 = "time.google.com";
 
 /*
-  we can modify image with this sensor
-
-  e.g. set brightness, saturation etc.
+  camera types
 */
-sensor_t *s;
+camera_config_t config;
+sensor_t *sensor;
 int initialized = 0;
 
 /* -------------------------------- */
 /* ---------- CAMERA SETUP ---------- */
 /* -------------------------------- */
-void configure_camera_sensor(int vflip, int brightness, int saturation) {
+void configure_camera_sensor(esp_config_t *esp_config) {
   if (initialized) {
-    s = esp_camera_sensor_get();
+    sensor = esp_camera_sensor_get();
 
-    s->set_vflip(s, vflip);                     // Flips the image vertically (some cameras mount upside-down)
-    s->set_brightness(s, brightness);           // Slightly increases brightness
-    s->set_saturation(s, saturation);           // Reduces color saturation (for less "washed-out" images)
+    sensor->set_vflip(sensor, esp_config->vertical_flip);                     // Flips the image vertically (some cameras mount upside-down)
+    sensor->set_brightness(sensor, esp_config->brightness);           // Slightly increases brightness
+    sensor->set_saturation(sensor, esp_config->saturation);           // Reduces color saturation (for less "washed-out" images)
 
     /* --- we can add more here --- */
     /* https://randomnerdtutorials.com/esp32-cam-ov2640-camera-settings/ */
@@ -69,37 +71,8 @@ void configure_camera_sensor(int vflip, int brightness, int saturation) {
   }
 }
 
-/* -------------------------------- */
-/* ---------- ESP SETUP ---------- */
-/* -------------------------------- */
-void initEspCamera(framesize_t framesize) {
-
-  Serial.println("-- configuring ESP pinout");
-  camera_config_t config;
-  config.ledc_channel = LEDC_CHANNEL_0;
-  config.ledc_timer = LEDC_TIMER_0;
-  config.pin_d0 = Y2_GPIO_NUM;
-  config.pin_d1 = Y3_GPIO_NUM;
-  config.pin_d2 = Y4_GPIO_NUM;
-  config.pin_d3 = Y5_GPIO_NUM;
-  config.pin_d4 = Y6_GPIO_NUM;
-  config.pin_d5 = Y7_GPIO_NUM;
-  config.pin_d6 = Y8_GPIO_NUM;
-  config.pin_d7 = Y9_GPIO_NUM;
-  config.pin_xclk = XCLK_GPIO_NUM;
-  config.pin_pclk = PCLK_GPIO_NUM;
-  config.pin_vsync = VSYNC_GPIO_NUM;
-  config.pin_href = HREF_GPIO_NUM;
-  config.pin_sccb_sda = SIOD_GPIO_NUM;
-  config.pin_sccb_scl = SIOC_GPIO_NUM;
-  config.pin_pwdn = PWDN_GPIO_NUM;
-  config.pin_reset = RESET_GPIO_NUM;
-  config.xclk_freq_hz = 20000000;
-  pinMode(LED_GPIO_NUM, OUTPUT);
-
-  Serial.println("-- configuring camera");
-
-  config.frame_size = framesize;
+void initEspCamera(framesize_t resolution) {
+  config.frame_size = resolution;
   config.pixel_format = PIXFORMAT_JPEG;
   config.grab_mode = CAMERA_GRAB_WHEN_EMPTY;
   config.fb_location = CAMERA_FB_IN_PSRAM;
@@ -107,7 +80,7 @@ void initEspCamera(framesize_t framesize) {
   config.fb_count = 1;
 
   if (psramFound()) {
-    config.jpeg_quality = 12;
+    config.jpeg_quality = 10;
     config.fb_count = 2;
     config.grab_mode = CAMERA_GRAB_LATEST;
   } else {
@@ -128,6 +101,33 @@ void initEspCamera(framesize_t framesize) {
     initialized = 1;
     Serial.println("---- camera initialized");
   }
+}
+
+/* -------------------------------- */
+/* ---------- ESP SETUP ---------- */
+/* -------------------------------- */
+void initEspPinout() {
+  Serial.println("-- configuring ESP pinout");
+  config.ledc_channel = LEDC_CHANNEL_0;
+  config.ledc_timer = LEDC_TIMER_0;
+  config.pin_d0 = Y2_GPIO_NUM;
+  config.pin_d1 = Y3_GPIO_NUM;
+  config.pin_d2 = Y4_GPIO_NUM;
+  config.pin_d3 = Y5_GPIO_NUM;
+  config.pin_d4 = Y6_GPIO_NUM;
+  config.pin_d5 = Y7_GPIO_NUM;
+  config.pin_d6 = Y8_GPIO_NUM;
+  config.pin_d7 = Y9_GPIO_NUM;
+  config.pin_xclk = XCLK_GPIO_NUM;
+  config.pin_pclk = PCLK_GPIO_NUM;
+  config.pin_vsync = VSYNC_GPIO_NUM;
+  config.pin_href = HREF_GPIO_NUM;
+  config.pin_sccb_sda = SIOD_GPIO_NUM;
+  config.pin_sccb_scl = SIOC_GPIO_NUM;
+  config.pin_pwdn = PWDN_GPIO_NUM;
+  config.pin_reset = RESET_GPIO_NUM;
+  config.xclk_freq_hz = 20000000;
+  pinMode(LED_GPIO_NUM, OUTPUT);
 }
 
 /* -------------------------------- */
@@ -178,27 +178,17 @@ void setupWifiConnection(wifi_configuration_t *wifi_config) {
 /* -------------------------------- */
 /* ---------- ESP CONFIG ---------- */
 /* -------------------------------- */
-framesize_t getResolutionFromString(const String &resolutionString) {
-  switch (resolutionString.toLowerCase()) {
-    catch "qvga":
-      return FRAMESIZE_QVGA;
-      break;
-    catch "vga":
-      return FRAMESIZE_VGA;
-      break;
-    catch "svga":
-      return FRAMESIZE_SVGA;
-      break;
-    catch "sxga":
-      return FRAMESIZE_SXGA;
-      break;
-    catch "uxga":
-      return FRAMESIZE_UXGA;
-      break;
-    default:
-      Serial.printf("------ Resolution '%s' is not supported. Using Default resolution VGA.\n", resolutionString);
-      return FRAMESIZE_VGA;
-  }
+framesize_t getResolutionFromString(String resolutionString) {
+    resolutionString.toLowerCase();
+    if (resolutionString == "qvga") { return FRAMESIZE_QVGA; }
+    if (resolutionString == "vga") { return FRAMESIZE_VGA; }
+    if (resolutionString == "svga") { return FRAMESIZE_SVGA; }
+    if (resolutionString == "sxga") { return FRAMESIZE_SXGA; }
+    if (resolutionString == "uxga") { return FRAMESIZE_UXGA; }
+
+    /* fallback */
+    Serial.printf("------ Resolution '%s' is not supported. Using Default resolution VGA.\n", resolutionString);
+    return FRAMESIZE_VGA;
 }
 
 bool loadConfig(esp_config_t *esp_config) {
@@ -214,9 +204,10 @@ bool loadConfig(esp_config_t *esp_config) {
     return false;
   }
 
-  File file = SPIFFS.open("CONFIG_FILE", "r");
+
+  File file = SPIFFS.open(esp_config->CONFIG_FILE, "r");
   if (!file) {
-    Serial.printf("%s not found\n", CONFIG_FILE);
+    Serial.printf("%s not found\n", esp_config->CONFIG_FILE);
     return false;
   }
 
@@ -228,11 +219,24 @@ bool loadConfig(esp_config_t *esp_config) {
     return false;
   }
 
-  esp_config->wifi_config.SSID = esp_config_doc["NETWORK"]["SSID"];
-  esp_config->wifi_config.PASSWORD = esp_config_doc["NETWORK"]["PASSWORD"];
-  esp_config->UPLOAD_URL = esp_config_doc["NETWORK"]["UPLOAD_URL"];
+  strlcpy(
+    esp_config->wifi_config.SSID,
+    esp_config_doc["NETWORK"]["SSID"] | "",
+    sizeof(esp_config->wifi_config.SSID)
+  );
+  strlcpy(
+    esp_config->wifi_config.PASSWORD,
+    esp_config_doc["NETWORK"]["PASSWORD"] | "",
+    sizeof(esp_config->wifi_config.PASSWORD)
+  );
+  strlcpy(
+    esp_config->UPLOAD_URL,
+    esp_config_doc["NETWORK"]["UPLOAD_URL"] | "",
+    sizeof(esp_config->UPLOAD_URL)
+  );
+  
+  esp_config->RESOLUTION =getResolutionFromString(esp_config_doc["CAMERA"]["RESOLUTION"]);
   esp_config->CAPTURE_INTERVAL = esp_config_doc["CAMERA"]["CAPTURE_INTERVAL_IN_MS"];
-  esp_config->RESOLUTION = getResolutionFromString(esp_config_doc["CAMERA"]["RESOLUTION"]);
   esp_config->vertical_flip = esp_config_doc["CAMERA"]["VERTICAL_FLIP"];
   esp_config->brightness = esp_config_doc["CAMERA"]["BRIGHTNESS"];
   esp_config->saturation = esp_config_doc["CAMERA"]["SATURATION"];

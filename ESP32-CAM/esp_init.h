@@ -4,13 +4,14 @@
 #include "esp_camera.h"
 
 typedef struct {
-  char *SSID;
-  char *PASSWORD;
+  char SSID[64];
+  char PASSWORD[64];
 } wifi_configuration_t;
 
 typedef struct {
+  char CONFIG_FILE[32];
   wifi_configuration_t wifi_config;
-  char *UPLOAD_URL;
+  char UPLOAD_URL[128];
   framesize_t RESOLUTION;
   int CAPTURE_INTERVAL;
   int vertical_flip;
@@ -18,10 +19,11 @@ typedef struct {
   int saturation;
 } esp_config_t;
 
-framesize_t getResolutionFromString(String &resolutionString);
+
 bool loadConfig(esp_config_t *esp_config);
-void initEspCamera(framesize_t framesize);
-void configure_camera_sensor();
+void initEspPinout();
+void initEspCamera(framesize_t resolution);
+void configure_camera_sensor(esp_config_t *esp_config);
 void setupWifiConnection(wifi_configuration_t *wifi_config);
 
 #endif

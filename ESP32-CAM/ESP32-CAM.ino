@@ -3,11 +3,8 @@
 #include "host.h"
 #include "client.h"
 #include <Arduino.h>
-#include <ArduinoJson.h>
 
-
-#define CONFIG_FILE "/config.json"
-
+const char *CONFIG_FILE_PATH = "/config.json";
 esp_config_t esp_config;
 int counter = 0;
 
@@ -18,14 +15,20 @@ int counter = 0;
  * ------------------------------------------------------------------------------
 */
 void setup() {
+  Serial.begin(115200);
   Serial.setDebugOutput(true);
   Serial.println();
   delay(200);
+
+  Serial.println("------ ESP STARTED ------");
+
+  strlcpy(esp_config.CONFIG_FILE, CONFIG_FILE_PATH, sizeof(esp_config.CONFIG_FILE));
 
   /*
     ESP opens WiFi access point to receive the configuration from user input
 
     Once connected go to:
+    
           ==============================
           ===== http://192.168.4.1 ===== -> ESP softAP() endpoint
           ==============================
@@ -33,22 +36,25 @@ void setup() {
     to type in WiFi credentials, endpoint URL and camera settings
   */
   Serial.println("[ESP] OPENING ACCESS POINT");
+  Serial.println("------ Connect on http://192.168.4.1 to configure ------");
   setupAccessPoint();
 
 
   Serial.println("[ESP] INITIALIZING ESP");
 
-  if (!loadConfig(*esp_config)) {
+  if (!loadConfig(&esp_config)) {
     Serial.println("-- Failed to configure ESP");
   }
 
-  initEspCamera(RESOLUTION);
-  configure_camera_sensor(vflip = vflip,
-                          brightness = brightness,
-                          saturation = saturation);
+  /*
+    initialization of ESP + cam
+  */
+  initEspPinout();
+  initEspCamera(esp_config.RESOLUTION);
+  configure_camera_sensor(&esp_config);
 
   Serial.printf("[ESP] CONFIGURING WIFI CONNECTION TO %s\n", esp_config.wifi_config.SSID);
-  setupWifiConnection(*esp_config.wifi_config);
+  setupWifiConnection(&esp_config.wifi_config);
 
   Serial.println("[ESP] SETUP COMPLETE");
   Serial.println("");
@@ -78,7 +84,7 @@ void loop() {
     return;
   }
 
-  Serial.printf("---- %s responded with status: %d\n", UPLOAD_URL, httpCode);
+  Serial.printf("---- %s responded with status: %d\n", esp_config.UPLOAD_URL, httpCode);
 
   switch (httpCode) {
     case 200:
