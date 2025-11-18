@@ -3,9 +3,9 @@ from concurrent.futures import ThreadPoolExecutor
 
 from flask import Flask, jsonify, request
 
-from circle_detection.detect_circle import detect_circles
 from routes.preview import preview_route, push_frame
 from services.aws import AWSClient
+from services.circle_detection.detect_circle import detect_circles
 
 app = Flask(__name__)
 
@@ -16,7 +16,9 @@ circles_array = []
 app.register_blueprint(preview_route)
 
 # Ensure the upload folder exists
-app.config["UPLOAD_FOLDER"] = os.path.abspath("backend-api/circle_detection/images")
+app.config["UPLOAD_FOLDER"] = os.path.abspath(
+    "backend-api/services/circle_detection/images"
+)
 os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
 
 # Init AWS client for image upload
@@ -24,6 +26,7 @@ s3 = AWSClient()
 executor = ThreadPoolExecutor(max_workers=25)  # limit
 
 
+# Upload route for ESP
 @app.post("/upload")
 def upload_image():
     if "image" not in request.files:
@@ -55,10 +58,9 @@ def upload_image():
     )
 
 
-# route to get array of detected circles
+# Results route for classification result
 @app.get("/result")
 def get_result():
-
     return (
         jsonify(
             {

@@ -2,7 +2,7 @@ import cv2
 import numpy as np
 
 # Load image
-img = cv2.imread("./backend-api/circle_detection/images/Bild.jpg")
+img = cv2.imread("./backend-api/services/circle_detection/images/Bild.jpg")
 
 gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 gray = cv2.medianBlur(gray, 5)
@@ -52,7 +52,7 @@ if circles is not None:
         print(res)
 
     # Save original and result image
-    cv2.imwrite("./backend-api/circle_detection/images/Bild_ergebnis.jpg", img)
+    cv2.imwrite("./backend-api/services/circle_detection/images/Bild_ergebnis.jpg", img)
     # cv2.imshow("Results", img)
     # cv2.waitKey(0)
     # cv2.destroyAllWindows()

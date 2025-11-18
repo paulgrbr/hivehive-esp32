@@ -1,6 +1,8 @@
-from circle_detection.detect_circle import detect_circles
 import os
+
 import cv2
+
+from services.circle_detection.detect_circle import detect_circles
 
 INPUT_PATH = "/Users/eliaspfeiffer/Developer/hivehive-esp32/circle_evaluation/input"
 OUPUT_PATH = "/Users/eliaspfeiffer/Developer/hivehive-esp32/circle_evaluation/output"
