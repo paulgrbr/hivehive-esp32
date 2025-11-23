@@ -24,14 +24,10 @@ Flashing the Firmware to a ESP32-CAM board using a web-flasher. Compatible board
 1.	Connect the ESP32-CAM via USB to a PC 
 2. Open in browser: https://esptool.spacehuhn.com/
 3.	Click **Connect**, select the USB/Serial device.
-
 4.	Click Erase Flash (optional but recommended).
-
 5. Download latest Firmware release here:
 [Download Latest ESP32-Cam Release](https://github.com/paulgrbr/hivehive-esp32/releases/latest)
-
 6.	Click **Program** and select the firmware file from latest release
-
 7.	After flashing, disconnect and **reset/restart** the ESP.
 
 ## 🧩 Server Deployment
