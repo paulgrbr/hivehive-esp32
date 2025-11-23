@@ -4,7 +4,8 @@
 | --------------- | ----------------------------------------------------------------------------------------------------------------------------- |
 | **Backend-API** | ![Build Status](https://img.shields.io/github/actions/workflow/status/paulgrbr/hivehive-test/build-and-push-backend-api.yaml) |
 | **ESP32-Cam Firmware** | ![GitHub Release](https://img.shields.io/github/v/release/paulgrbr/hivehive-esp32?include_prereleases&display_name=tag&label=Firmware)
- |
+ 
+
 
 ## 🧑‍💻 Project Overview
 
@@ -19,16 +20,15 @@ Flashing the Firmware to a ESP32-CAM board using a web-flasher. Compatible board
 - ESP32-CAM (AI Thinker)
 
 ### 📷 Steps:
+
 1.	Connect the ESP32-CAM via USB to a PC 
-
 2. Open in browser: https://esptool.spacehuhn.com/
-
 3.	Click **Connect**, select the USB/Serial device.
 
 4.	Click Erase Flash (optional but recommended).
 
 5. Download latest Firmware release here:
- ![GitHub Release](https://img.shields.io/github/v/release/paulgrbr/hivehive-esp32?include_prereleases&display_name=tag&label=Download%20Latest%20Firmware&link=https%3A%2F%2Fgithub.com%2Fpaulgrbr%2Fhivehive-esp32%2Freleases%2Flatest)
+[Download Latest ESP32-Cam Release](https://github.com/paulgrbr/hivehive-esp32/releases/latest)
 
 6.	Click **Program** and select the firmware file from latest release
 
