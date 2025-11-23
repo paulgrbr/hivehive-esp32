@@ -20,10 +20,10 @@ def detect_circles(image_path):
     circles = cv2.HoughCircles(
         gray,
         cv2.HOUGH_GRADIENT,
-        dp=1.2,  # resolution ratio
-        minDist=50,  # minimum distance between circles
-        param1=85,  # Canny edge parameter
-        param2=85,  # sensitivity: smaller -> more circles
+        dp=1.2,  # resolution ratio # 1.0 & 1.5 ausprobiern
+        minDist=50,  # minimum distance between circles # kleiner ausprobiern
+        param1=85,  # Canny edge parameter # 300 ausprobiern
+        param2=85,  # sensitivity: smaller -> more circles #0.9 probieren
         minRadius=5,
         maxRadius=500,
     )
@@ -44,10 +44,10 @@ def detect_circles(image_path):
 
             # Decision: filled or not?
             filled = abs(mean_inside - mean_edge) < 20  # threshold adjustable
-            fill_state = "filled" if filled else "unfilled"
+            # fill_state = "filled" if filled else "unfilled"
 
             results.append(
-                {"x": int(x), "y": int(y), "radius": int(r), "status": fill_state}
+                {"x": int(x), "y": int(y), "radius": int(r), "filled": filled}
             )
 
             # Visualization
