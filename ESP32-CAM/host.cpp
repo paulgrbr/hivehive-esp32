@@ -8,6 +8,7 @@ const char *HOST_PASSWORD = "esp-12345";
 
 WiFiServer server(80); // port 80
 int server_running = 0;
+String sessionToken;
 
 String header;
 
@@ -64,7 +65,7 @@ String getParam(const String& query, const String& name) {
   -------------------------------------
 */
 void loadConfig() {
-  if (!SPIFFS.exists("config.json")) {
+  if (!SPIFFS.exists("/config.json")) {
     Serial.println("config.json not found, using defaults");
     return;
   }
@@ -149,7 +150,8 @@ void sendConfigForm(WiFiClient &client, bool saved = false) {
   }
 
   client.println("<form action=\"/save\" method=\"GET\">");
-
+  client.println("<input type=\"hidden\" name=\"session\" value=\"" + sessionToken + "\">");
+  
   client.println("<h2>Network</h2>");
   client.println("<label>SSID</label>");
   client.println("<input type=\"text\" name=\"ssid\" value=\"" + cfg_ssid + "\">");
@@ -196,7 +198,7 @@ void runAccessPoint() {
   while (server_running) {
     WiFiClient client = server.available();
     if (client) {
-      Serial.println("------ SERVER AVAILABLE ------");
+      Serial.println("\n------ CLIENT CONNECTED ------");
       String currentLine = "";
       header = "";
 
@@ -215,8 +217,11 @@ void runAccessPoint() {
               String firstLine = header.substring(idx + 4, sp); // e.g. "/save?ssid=..."
 
               if (firstLine.startsWith("/save?")) {
-                String query = firstLine.substring(String("/save?").length());
+              String query = firstLine.substring(String("/save?").length());
 
+              // only treat as a valid save if the session token matches
+              String sessionParam = getParam(query, "session");
+              if (sessionParam == sessionToken) {
                 cfg_ssid        = getParam(query, "ssid");
                 cfg_password    = getParam(query, "password");
                 cfg_upload_url  = getParam(query, "upload");
@@ -230,13 +235,13 @@ void runAccessPoint() {
                 saveConfig();
                 sendConfigForm(client, true);
 
-                // after saving once, stop AP and continue setup()
                 server_running = 0;
               } else {
-                // default: show form
                 sendConfigForm(client, false);
               }
-
+            } else {
+              sendConfigForm(client, false);
+            }
               break;
             } else {
               currentLine = "";
@@ -262,6 +267,8 @@ void setupAccessPoint() {
   }
 
   loadConfig();
+
+  sessionToken = String((uint32_t)esp_random(), HEX);
 
   Serial.println("-- Setting Access Point");
   WiFi.mode(WIFI_AP_STA);
