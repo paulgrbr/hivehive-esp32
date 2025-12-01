@@ -222,3 +222,5 @@ backend-api/.DS_Store
 
 # Images generated during circle detection
 backend-api/circle_detection/images/*
+
+ESP32-CAM/config.json
