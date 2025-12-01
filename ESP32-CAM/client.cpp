@@ -5,6 +5,9 @@
 #include <WiFi.h>
 #include <WifiClientSecure.h>
 #include <Arduino.h>
+#include <ArduinoJson.h>
+
+static WiFiClientSecure client;
 
 /*
   Extracts
@@ -14,7 +17,6 @@
   from a given URL and sets it to the Url struct.
 */
 static url_t splitUrl(const char* urlChars) {
-  unsigned long __t_parse_url_start = millis();
   url_t url;
   
   /* default port + path if given URL does not contain any */
@@ -58,11 +60,7 @@ static url_t splitUrl(const char* urlChars) {
     url.port = host.substring(colon + 1).toInt();
   } else {
       url.host = host;
-  }
-
-  unsigned long __t_parse_url_end = millis();
-  Serial.println(String("---- parse url took ") + String((__t_parse_url_end - __t_parse_url_start) / 1000.0f, 3) + " seconds");
-
+  }  
   return url;
 }
 
@@ -70,8 +68,6 @@ static url_t splitUrl(const char* urlChars) {
   Creates unique filename of format: esp_capture_YYYYMMDDhhmmss.jpg
 */
 String createFileName() {
-  unsigned long __t_create_filename_start = millis();
-
   struct tm timeinfo;
   bool localTimeAvailable = getLocalTime(&timeinfo, 200); /* up to 200ms timeout for getting the local tikme */
 
@@ -92,23 +88,63 @@ String createFileName() {
   }
 
   Serial.printf("------ file name: %s\n", buf);
-  unsigned long __t_create_filename_end = millis();
-  Serial.println(String("---- create filename took ")
-    + String((__t_create_filename_end - __t_create_filename_start) / 1000.0f, 3)
-    + " seconds");
-
   return String(buf);
 }
 
+/*
+  Extracts information about the circle from the HTTP response, detected by the circle detection running on the server
+  -> radius
+  -> filled or not filled
+  -> position
+*/
+void printResponse(String response) {
+  DynamicJsonDocument doc(1024);
+  DeserializationError error = deserializeJson(doc, response);
+
+  if (error) {
+    Serial.print("------ JSON parse error: ");
+    Serial.println(error.c_str());
+  } else {
+    Serial.println("----------------------------------------------------------------------");
+    Serial.println("------------------------- RESPONSE -----------------------------------");
+    Serial.println("------------------------------------------------------------");
+    Serial.printf("--------------------- %d circles found ---------------------\n", doc["circles"].size());
+    Serial.println("------------------------------------------------------------");
+
+    for (int i = 0; i < doc["circles"].size(); i++) {
+      int radius = doc["circles"][i]["radius"];
+      const char* status = doc["circles"][i]["status"];
+      int x = doc["circles"][i]["x"];
+      int y = doc["circles"][i]["y"];
+
+      Serial.printf("--------------------- Circle[%d] radius: %d ---------------------\n", i+1, radius);
+      Serial.printf("--------------------- Circle[%d] status: %s ---------------------\n", i+1, status);
+      Serial.printf("----------------- Circle[%d] position: (%d, %d)------------------\n", i+1, x, y);
+      Serial.println("------------------------------------------------------------");
+    }
+
+    const char* message = doc["message"];
+    Serial.printf("---- Response message: %s\n ----\n", message);
+    Serial.println("----------------------------------------------------------------------");
+  }
+}
 
 int postImage(char *UPLOAD_URL) {
   unsigned long __t_all_start = millis();
 
   /*
     Image is captured through ESP API
+
+    flash is activated
   */
+  digitalWrite(4, HIGH);
   camera_fb_t *fb = esp_camera_fb_get();
-  if (!fb) { return -1; }
+  if (!fb) { 
+    digitalWrite(4, LOW);
+    return -1; 
+  }
+  delay(100);
+  digitalWrite(4, LOW);
 
   /*
     This little beast creates the HTTP request
@@ -127,52 +163,58 @@ int postImage(char *UPLOAD_URL) {
 
   /* prepare server connection */
   url_t url = splitUrl(UPLOAD_URL);
-  WiFiClientSecure client;
-  client.setInsecure();            // TODO: for now insecure w/out verification -> should we add certificate?
-  client.setNoDelay(true);         // Disables Nagle (whatever that is but seems to be reducing latency)
-  client.setTimeout(8000);
+
+  // Initialize persistent client only once
+  static bool clientInitialized = false;
+  if (!clientInitialized) {
+    client.setInsecure();      // TODO: add proper certificate later
+    client.setNoDelay(true);   // disables Nagle
+    client.setTimeout(8000);
+    clientInitialized = true;
+  }
 
   /*
-    Starting TCP connection
+    Ensure TCP connection (reuse if already connected)
   */
   unsigned long __t_conn_start = millis();
-  if (!client.connect(url.host.c_str(), url.port)) {
-    unsigned long __t_conn_end_fail = millis();
-    Serial.println(String("---- TCP connect took ") + String((__t_conn_end_fail - __t_conn_start) / 1000.0f, 3) + " seconds");
-    esp_camera_fb_return(fb);
-    return -2;
+  if (!client.connected()) {
+    if (!client.connect(url.host.c_str(), url.port)) {
+      // Connection failed
+      esp_camera_fb_return(fb);
+      return -2;
+    }
   }
   unsigned long __t_conn_end = millis();
-  Serial.println(String("---- TCP connect took ") + String((__t_conn_end - __t_conn_start) / 1000.0f, 3) + " seconds");
+  //Serial.println(String("---- TCP connect took ") + String((__t_conn_end - __t_conn_start) / 1000.0f, 3) + " seconds");
 
   /*
-    Another beast that creates the POST request header
+    POST request header
   */
   unsigned long __t_hdr_start = millis();
   client.print(String("POST ") + url.path + " HTTP/1.1\r\n");
   client.print(String("Host: ") + url.host + "\r\n");
-  client.print("Connection: close\r\n");
+
+  // For HTTP/1.1 keep-alive is default, but being explicit doesn't hurt
+  client.print("Connection: keep-alive\r\n");
+
   client.print(String("Content-Type: multipart/form-data; boundary=") + boundary + "\r\n");
   client.print(String("Content-Length: ") + contentLength + "\r\n\r\n");
   unsigned long __t_hdr_end = millis();
-  Serial.println(String("---- POST headers took ") + String((__t_hdr_end - __t_hdr_start) / 1000.0f, 3) + " seconds");
+  //Serial.println(String("---- POST headers took ") + String((__t_hdr_end - __t_hdr_start) / 1000.0f, 3) + " seconds");
 
   /*
-    And finally the body with the image (fb) header + data
-
-    Sends chunks of 4064 bytes (4 kib)
+    Body with the image (fb) header + data
   */
   unsigned long __t_upload_start = millis();
   client.print(head);
   size_t sent = 0;
   while (sent < fb->len) {
-    size_t chunk = client.write(fb->buf + sent, min((size_t)4096, fb->len - sent));
+    size_t chunk = client.write(fb->buf + sent, min((size_t)16384, fb->len - sent));
     if (chunk == 0) {
-
-      // this is only entered if there is an error happening during the connection or a fault with the data
+      // Error while sending data
       unsigned long __t_upload_err = millis();
-      Serial.println(String("---- upload (partial) took ") + String((__t_upload_err - __t_upload_start) / 1000.0f, 3) + " seconds");
-      client.stop();
+      //Serial.println(String("---- upload (partial) took ") + String((__t_upload_err - __t_upload_start) / 1000.0f, 3) + " seconds");
+      client.stop();              // <-- close on error so next call reconnects
       esp_camera_fb_return(fb);
       return -3;
     }
@@ -180,19 +222,49 @@ int postImage(char *UPLOAD_URL) {
   }
   client.print(tail);
   unsigned long __t_upload_end = millis();
-  Serial.println(String("---- upload took ") + String((__t_upload_end - __t_upload_start) / 1000.0f, 3) + " seconds");
+  //Serial.println(String("---- upload took ") + String((__t_upload_end - __t_upload_start) / 1000.0f, 3) + " seconds");
 
   /*
-    finally the HTTP response
+    HTTP response
   */
   unsigned long __t_resp_wait_start = millis();
   String status = client.readStringUntil('\n');
   unsigned long __t_resp_wait_end = millis();
-  Serial.println(String("---- server response wait took ") + String((__t_resp_wait_end - __t_resp_wait_start) / 1000.0f, 3) + " seconds");
+
+  // Skip headers
+  while (client.connected()) {
+    String line = client.readStringUntil('\n');
+    if (line == "\r" || line.length() == 0) {
+      // Empty line = end of headers
+      break;
+    }
+  }
+
+  // Read the JSON body
+  String response = "";
+  unsigned long start = millis();
+  while (client.connected() || client.available()) {
+    if (client.available()) {
+      char c = client.read();
+      response += c;
+      start = millis();      // reset timeout on progress
+    } else if (millis() - start > 5000) { // timeout (optional)
+      break;
+    }
+  }
+
+  printResponse(response);
 
   int code = -4;
-  if (status.startsWith("HTTP/1.1 ")) code = status.substring(9, 12).toInt();
-  client.stop();
+  if (status.startsWith("HTTP/1.1 ")) {
+    code = status.substring(9, 12).toInt();
+  }
+
+  // On bad status code, close so the next iteration can start fresh
+  if (code < 200 || code >= 300) {
+    client.stop();
+  }
+  // On success, we keep the connection open and reuse it next time
 
   /*
     ALWAYS free the image from memory otherwise the fun won't last for a long time...
