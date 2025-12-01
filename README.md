@@ -52,7 +52,9 @@ docker compose -f docker-compose-dev.yml up --build
 
 ➡️ Builds the backend image from backend-api/Dockerfile and runs the container.
 
-### 🎛️ Environment Variables (Optional)
+---
+
+## 🎛️ Environment Variables (Optional)
 
 The backend uses an AWS-compatible S3 storage endpoint to store all raw incoming images.
 These images can be used for training, validation, and dataset management.
@@ -61,7 +63,7 @@ These images can be used for training, validation, and dataset management.
 Configure these values in a .env file or via Docker Compose.
 A .env.template file is provided. 
 
-#### 1. AWS S3 / S3-Compatible Storage
+### AWS S3 / S3-Compatible Storage
 
 ```bash
 AWS_ENDPOINT="https://[your-endpoint-here]"

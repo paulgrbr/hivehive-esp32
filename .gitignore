@@ -219,8 +219,10 @@ backend-api/.DS_Store
 
 # Mac OS filesystem stuff
 .DS_Store
+temp_store/*
 
 # Images generated during circle detection
 backend-api/circle_detection/images/*
+backend-api/services/circle_detection/images/*
 
 ESP32-CAM/config.json
