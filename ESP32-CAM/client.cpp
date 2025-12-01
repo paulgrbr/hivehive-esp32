@@ -7,7 +7,7 @@
 #include <Arduino.h>
 #include <ArduinoJson.h>
 
-
+static WiFiClientSecure client;
 
 /*
   Extracts
@@ -139,7 +139,10 @@ int postImage(char *UPLOAD_URL) {
   */
   digitalWrite(4, HIGH);
   camera_fb_t *fb = esp_camera_fb_get();
-  if (!fb) { return -1; }
+  if (!fb) { 
+    digitalWrite(4, LOW);
+    return -1; 
+  }
   delay(100);
   digitalWrite(4, LOW);
 
@@ -160,52 +163,58 @@ int postImage(char *UPLOAD_URL) {
 
   /* prepare server connection */
   url_t url = splitUrl(UPLOAD_URL);
-  WiFiClientSecure client;
-  client.setInsecure();            // TODO: for now insecure w/out verification -> should we add certificate?
-  client.setNoDelay(true);         // Disables Nagle (whatever that is but seems to be reducing latency)
-  client.setTimeout(8000);
+
+  // Initialize persistent client only once
+  static bool clientInitialized = false;
+  if (!clientInitialized) {
+    client.setInsecure();      // TODO: add proper certificate later
+    client.setNoDelay(true);   // disables Nagle
+    client.setTimeout(8000);
+    clientInitialized = true;
+  }
 
   /*
-    Starting TCP connection
+    Ensure TCP connection (reuse if already connected)
   */
   unsigned long __t_conn_start = millis();
-  if (!client.connect(url.host.c_str(), url.port)) {
-    //unsigned long __t_conn_end_fail = millis();
-    //Serial.println(String("---- TCP connect took ") + String((__t_conn_end_fail - __t_conn_start) / 1000.0f, 3) + " seconds");
-    esp_camera_fb_return(fb);
-    return -2;
+  if (!client.connected()) {
+    if (!client.connect(url.host.c_str(), url.port)) {
+      // Connection failed
+      esp_camera_fb_return(fb);
+      return -2;
+    }
   }
   unsigned long __t_conn_end = millis();
   //Serial.println(String("---- TCP connect took ") + String((__t_conn_end - __t_conn_start) / 1000.0f, 3) + " seconds");
 
   /*
-    Another beast that creates the POST request header
+    POST request header
   */
   unsigned long __t_hdr_start = millis();
   client.print(String("POST ") + url.path + " HTTP/1.1\r\n");
   client.print(String("Host: ") + url.host + "\r\n");
-  client.print("Connection: close\r\n");
+
+  // For HTTP/1.1 keep-alive is default, but being explicit doesn't hurt
+  client.print("Connection: keep-alive\r\n");
+
   client.print(String("Content-Type: multipart/form-data; boundary=") + boundary + "\r\n");
   client.print(String("Content-Length: ") + contentLength + "\r\n\r\n");
   unsigned long __t_hdr_end = millis();
   //Serial.println(String("---- POST headers took ") + String((__t_hdr_end - __t_hdr_start) / 1000.0f, 3) + " seconds");
 
   /*
-    And finally the body with the image (fb) header + data
-
-    Sends chunks of 4064 bytes (4 kib)
+    Body with the image (fb) header + data
   */
   unsigned long __t_upload_start = millis();
   client.print(head);
   size_t sent = 0;
   while (sent < fb->len) {
-    size_t chunk = client.write(fb->buf + sent, min((size_t)4096, fb->len - sent));
+    size_t chunk = client.write(fb->buf + sent, min((size_t)16384, fb->len - sent));
     if (chunk == 0) {
-
-      // this is only entered if there is an error happening during the connection or a fault with the data
+      // Error while sending data
       unsigned long __t_upload_err = millis();
       //Serial.println(String("---- upload (partial) took ") + String((__t_upload_err - __t_upload_start) / 1000.0f, 3) + " seconds");
-      client.stop();
+      client.stop();              // <-- close on error so next call reconnects
       esp_camera_fb_return(fb);
       return -3;
     }
@@ -216,12 +225,11 @@ int postImage(char *UPLOAD_URL) {
   //Serial.println(String("---- upload took ") + String((__t_upload_end - __t_upload_start) / 1000.0f, 3) + " seconds");
 
   /*
-    finally the HTTP response
+    HTTP response
   */
   unsigned long __t_resp_wait_start = millis();
   String status = client.readStringUntil('\n');
   unsigned long __t_resp_wait_end = millis();
-
 
   // Skip headers
   while (client.connected()) {
@@ -239,28 +247,24 @@ int postImage(char *UPLOAD_URL) {
     if (client.available()) {
       char c = client.read();
       response += c;
+      start = millis();      // reset timeout on progress
     } else if (millis() - start > 5000) { // timeout (optional)
       break;
     }
   }
 
-  /*
-  Extract server response JSON to read circle detection output
-  Output is
-
-  circles: [
-
-  ],
-  message: String
-  */
-
   printResponse(response);
-  
-  //Serial.println(String("---- server response wait took ") + String((__t_resp_wait_end - __t_resp_wait_start) / 1000.0f, 3) + " seconds");
-  //Serial.printf("------ HTTP response: %s\n", status);
+
   int code = -4;
-  if (status.startsWith("HTTP/1.1 ")) code = status.substring(9, 12).toInt();
-  client.stop();
+  if (status.startsWith("HTTP/1.1 ")) {
+    code = status.substring(9, 12).toInt();
+  }
+
+  // On bad status code, close so the next iteration can start fresh
+  if (code < 200 || code >= 300) {
+    client.stop();
+  }
+  // On success, we keep the connection open and reuse it next time
 
   /*
     ALWAYS free the image from memory otherwise the fun won't last for a long time...
@@ -268,7 +272,7 @@ int postImage(char *UPLOAD_URL) {
   esp_camera_fb_return(fb);
 
   unsigned long __t_all_end = millis();
-  //Serial.println(String("---- total capture+post took ") + String((__t_all_end - __t_all_start) / 1000.0f, 3) + " seconds");
+  Serial.println(String("---- total capture+post took ") + String((__t_all_end - __t_all_start) / 1000.0f, 3) + " seconds");
 
   return code;
 }

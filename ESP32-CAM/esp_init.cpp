@@ -157,7 +157,7 @@ void setupTime() {
 void tuneWifiForLatency() {
   WiFi.setSleep(false);                    // Disable modem sleep (lowers jitter)
   esp_wifi_set_ps(WIFI_PS_NONE);           // Same idea at IDF level
-  WiFi.setTxPower(WIFI_POWER_19_5dBm);     // Max TX power (if allowed)
+  //WiFi.setTxPower(WIFI_POWER_19_5dBm);     // Max TX power (if allowed)
 }
 
 void setupWifiConnection(wifi_configuration_t *wifi_config) {
