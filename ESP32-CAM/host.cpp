@@ -391,7 +391,6 @@ void runAccessPoint() {
 }
 
 void setupAccessPoint() {
-  Serial.println("-- Initializing SPIFFS");
   if (!SPIFFS.begin(true)) {        // true = format if mount fails
     Serial.println("SPIFFS mount failed");
   }
@@ -400,13 +399,10 @@ void setupAccessPoint() {
 
   sessionToken = String((uint32_t)esp_random(), HEX);
 
-  Serial.println("-- Setting Access Point");
   WiFi.mode(WIFI_AP_STA);
   bool ok = WiFi.softAP(HOST_SSID, HOST_PASSWORD, 1, 0);
   if (!ok) {
     Serial.println("!!! WiFi.softAP FAILED");
-  } else {
-    Serial.println("AP started OK");
   }
 
   WiFi.begin();
