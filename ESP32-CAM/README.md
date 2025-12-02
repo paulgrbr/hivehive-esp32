@@ -62,11 +62,12 @@ Flashing the firmware can be done in the browser using the [ESPWebTool](https://
 
 **Flashing process (detailed):**
 1. Download the newest `firmware.bin` from the Releases section.  
-2. Open the [ESPWebTool](https://esptool.spacehuhn.com/) in Chrome/Edge.  
+2. Open the [ESPWebTool](https://esptool.spacehuhn.com/) in Chrome/Edge.
 3. Click **Connect** and select the serial port of your ESP32-CAM (usually shows up as USB-Serial).  
-4. Choose **Flash Firmware** and select the downloaded `firmware.bin`.  
-5. Start the flashing process and wait until the tool reports success.  
-6. Restart the ESP32-CAM after flashing completes.
+4. Choose **Flash Firmware** and select the downloaded `firmware.bin`.
+5. Leave offset at '''#0'''
+6. Start the flashing process and wait until the tool reports success.  
+7. Restart the ESP32-CAM after flashing completes.
 
 ---
 
