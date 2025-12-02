@@ -4,6 +4,7 @@ from concurrent.futures import ThreadPoolExecutor
 from flask import Flask, jsonify, request
 
 from routes.preview import preview_route, push_frame
+from routes.dashboard import dashboard_route
 from services.aws import AWSClient
 from services.circle_detection.detect_circle import detect_circles
 
@@ -14,6 +15,7 @@ circles_array = []
 
 # Register other routes
 app.register_blueprint(preview_route)
+app.register_blueprint(dashboard_route)
 
 # Ensure the upload folder exists
 app.config["UPLOAD_FOLDER"] = os.path.abspath(
