@@ -93,7 +93,7 @@ void loop() {
   Serial.println("");
   Serial.printf("-- Trying to capture and post image number %d\n", counter++);
 
-  int httpCode = postImage(esp_config.UPLOAD_URL);
+  int httpCode = postImage(&esp_config);
   if (httpCode == -1) {
     Serial.println("---- Camera error. Could not capture image");
     return;
