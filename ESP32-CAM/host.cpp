@@ -15,6 +15,7 @@ String header;
 String cfg_ssid           = "";
 String cfg_password       = "";
 String cfg_upload_url     = "";
+String cfg_init_url       = "";
 String cfg_resolution     = "VGA";
 int    cfg_interval_ms    = 300;
 int    cfg_vflip          = 0;
@@ -90,6 +91,7 @@ void loadConfig() {
   cfg_ssid        = doc["NETWORK"]["SSID"]           | "";
   cfg_password    = doc["NETWORK"]["PASSWORD"]       | "";
   cfg_upload_url  = doc["NETWORK"]["UPLOAD_URL"]     | "";
+  cfg_init_url  = doc["NETWORK"]["INIT_URL"]     | "";
 
   cfg_interval_ms = doc["CAMERA"]["CAPTURE_INTERVAL_IN_MS"] | 0;
   cfg_resolution  = doc["CAMERA"]["RESOLUTION"]              | "VGA";
@@ -112,6 +114,7 @@ void saveConfig() {
   net["SSID"]        = cfg_ssid;
   net["PASSWORD"]    = cfg_password;
   net["UPLOAD_URL"]  = cfg_upload_url;
+  net["INIT_URL"]    = cfg_init_url;
 
   cam["CAPTURE_INTERVAL_IN_MS"] = cfg_interval_ms;
   cam["RESOLUTION"]             = cfg_resolution;
@@ -144,6 +147,15 @@ void sendConfigForm(WiFiClient &client, bool saved = false) {
     uploadEndpoint = uploadBase.substring(lastSlash + 1);
     uploadBase = uploadBase.substring(0, lastSlash);
   }
+
+  String initBase = cfg_init_url;
+  String initEndpoint = "";
+  int lastSlashInit = initBase.lastIndexOf('/');
+  if (lastSlashInit > 7) { // after "http://", "https://"
+    initEndpoint = initBase.substring(lastSlashInit + 1);
+    initBase = initBase.substring(0, lastSlashInit);
+  }
+
 
   client.println("HTTP/1.1 200 OK");
   client.println("Content-type:text/html");
@@ -195,7 +207,29 @@ void sendConfigForm(WiFiClient &client, bool saved = false) {
   client.println("<input id=\"password\" type=\"password\" name=\"password\" value=\"" + cfg_password + "\">");
   client.println("<div class=\"hint\">Password will be sent in the request body (not visible in the address bar).</div>");
 
+
+    // init url
+  client.println("<label for=\"init_base\">Initialization URL</label>");
+  client.println("<div class=\"hint\">Type in the URL and endpoint where the module is added to the HIVE-HIVE network.</div>");
+  client.println("<div class=\"inline\">");
+  client.println("<div>");
+  client.println("<input id=\"init_base\" type=\"text\" name=\"init_base\" "
+                 "placeholder=\"http://example.com\" value=\"" + initBase + "\">");
+  client.println("<div class=\"hint\">Base URL</div>");
+  client.println("</div>");
+  client.println("<div>");
+  client.println("<input id=\"init_endpoint\" type=\"text\" name=\"init_endpoint\" "
+                 "placeholder=\"upload\" value=\"" + initEndpoint + "\">");
+  client.println("<div class=\"hint\">Endpoint (path)</div>");
+  client.println("</div>");
+  client.println("</div>");
+  client.println("<div class=\"hint\">Server combines these to "
+                 "<code>http://example.com/endpoint</code>.</div>");
+
+
+  // upload url
   client.println("<label for=\"upload_base\">Upload URL</label>");
+  client.println("<div class=\"hint\">Type in the URL and endpoint where the module should send the images for the hive evaluation.</div>");
   client.println("<div class=\"inline\">");
   client.println("<div>");
   client.println("<input id=\"upload_base\" type=\"text\" name=\"upload_base\" "
@@ -209,7 +243,8 @@ void sendConfigForm(WiFiClient &client, bool saved = false) {
   client.println("</div>");
   client.println("</div>");
   client.println("<div class=\"hint\">Server can combine these as "
-                 "<code>http://example.com/upload</code>.</div>");
+                 "<code>http://example.com/endpoint</code>.</div>");
+
 
   // --- Camera section ---
   client.println("<h2>Camera</h2>");
@@ -332,10 +367,18 @@ void runAccessPoint() {
                     String uploadBase     = getParam(query, "upload_base");
                     String uploadEndpoint = getParam(query, "upload_endpoint");
 
+
+                    // initURL
+                    String initBase     = getParam(query, "init_base");
+                    String initEndpoint = getParam(query, "init_endpoint");
+
                     // Normalise and combine into cfg_upload_url
                     uploadBase.trim();
                     uploadEndpoint.trim();
+                    initBase.trim();
+                    initEndpoint.trim();
 
+                    // upload
                     if (uploadBase.endsWith("/")) {
                       uploadBase.remove(uploadBase.length() - 1);
                     }
@@ -348,6 +391,21 @@ void runAccessPoint() {
                     } else {
                       // if no endpoint, just store base
                       cfg_upload_url = uploadBase;
+                    }
+
+                    // init
+                    if (initBase.endsWith("/")) {
+                      initBase.remove(initBase.length() - 1);
+                    }
+                    if (initEndpoint.startsWith("/")) {
+                      initEndpoint = initEndpoint.substring(1);
+                    }
+
+                    if (initBase.length() > 0 && initEndpoint.length() > 0) {
+                      cfg_init_url = initBase + "/" + initEndpoint;
+                    } else {
+                      // if no endpoint, just store base
+                      cfg_init_url = initBase;
                     }
 
                     cfg_interval_ms = getParam(query, "interval").toInt();

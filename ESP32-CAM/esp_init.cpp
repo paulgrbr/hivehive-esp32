@@ -251,12 +251,14 @@ bool loadConfig(esp_config_t *esp_config) {
     esp_config_doc["NETWORK"]["UPLOAD_URL"] | "",
     sizeof(esp_config->UPLOAD_URL)
   );
-
-  //esp_config->wifi_config.SSID[strcspn(esp_config->wifi_config.SSID, "\r\n")] = 0;
-  //esp_config->wifi_config.PASSWORD[strcspn(esp_config->wifi_config.PASSWORD, "\r\n")] = 0;
+  strlcpy(
+    esp_config->INIT_URL,
+    esp_config_doc["NETWORK"]["INIT_URL"] | "",
+    sizeof(esp_config->INIT_URL)
+  );
   
-  Serial.printf("SSID: %s\n", esp_config->wifi_config.SSID);
-  Serial.printf("PASSWORD: %s\n", esp_config->wifi_config.PASSWORD);
+  //Serial.printf("SSID: %s\n", esp_config->wifi_config.SSID);
+  //Serial.printf("PASSWORD: %s\n", esp_config->wifi_config.PASSWORD);
 
   esp_config->RESOLUTION =getResolutionFromString(esp_config_doc["CAMERA"]["RESOLUTION"]);
   esp_config->CAPTURE_INTERVAL = esp_config_doc["CAMERA"]["CAPTURE_INTERVAL_IN_MS"];
@@ -272,6 +274,9 @@ bool loadConfig(esp_config_t *esp_config) {
     return false;
   } else if (!esp_config->UPLOAD_URL) {
     Serial.println("------ Could not read UPLOAD_URL from config file.");
+    return false;
+  } else if (!esp_config->INIT_URL) {
+    Serial.println("------ Could not read INIT_URL from config file.");
     return false;
   }
   return true;
@@ -316,8 +321,8 @@ void getGeolocation(esp_config_t *esp_config) {
   if (httpResponseCode > 0) {
 
     String response = http.getString();
-    Serial.println("Response:");
-    Serial.println(response);
+    //Serial.println("Response:");
+    //Serial.println(response);
 
     DynamicJsonDocument responseDoc(2048);
     DeserializationError error = deserializeJson(responseDoc, response);
@@ -343,14 +348,18 @@ void getGeolocation(esp_config_t *esp_config) {
 void initNewModuleOnServer(esp_config_t *esp_config) {
   if (WiFi.status() == WL_CONNECTED) {
     HTTPClient http;
-    //http.begin(esp_config->INIT_URL);
-    http.begin("http://192.168.0.36:8002/new_module");
+
+    Serial.printf("------ INIT_URL: %s\n", esp_config->INIT_URL);
+
+    http.begin(esp_config->INIT_URL);
+    //http.begin("http://192.168.0.36:8002/new_module");
     http.addHeader("Content-Type", "application/json");
 
     StaticJsonDocument<200> doc;
     doc["esp_id"] = String(esp_config->esp_ID);
     doc["latitude"] = String(esp_config->geolocation.latitude);
     doc["longitude"] = String(esp_config->geolocation.longitude);
+    doc["battery_level"] = String(esp_config->battery_level);
 
     String jsonData;
     serializeJson(doc, jsonData);

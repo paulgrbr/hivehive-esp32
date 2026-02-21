@@ -24,6 +24,7 @@ typedef struct {
   /* connectivity */
   wifi_configuration_t wifi_config;
   geolocation_t geolocation;
+  char INIT_URL[128];
   char UPLOAD_URL[128];
 
   /* camera setup */
