@@ -19,6 +19,7 @@ typedef struct {
 
   /* esp module information */
   uint64_t esp_ID;
+  char module_name[64];
   uint8_t battery_level;
 
   /* connectivity */

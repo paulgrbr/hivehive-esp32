@@ -12,6 +12,7 @@ String sessionToken;
 
 String header;
 
+String cfg_module_name = "";
 String cfg_ssid           = "";
 String cfg_password       = "";
 String cfg_upload_url     = "";
@@ -88,6 +89,7 @@ void loadConfig() {
     return;
   }
 
+  cfg_module_name = doc["NETWORK"]["MODULE_NAME"] | "";
   cfg_ssid        = doc["NETWORK"]["SSID"]           | "";
   cfg_password    = doc["NETWORK"]["PASSWORD"]       | "";
   cfg_upload_url  = doc["NETWORK"]["UPLOAD_URL"]     | "";
@@ -111,6 +113,7 @@ void saveConfig() {
   JsonObject net  = doc.createNestedObject("NETWORK");
   JsonObject cam  = doc.createNestedObject("CAMERA");
 
+  net["MODULE_NAME"] = cfg_module_name;
   net["SSID"]        = cfg_ssid;
   net["PASSWORD"]    = cfg_password;
   net["UPLOAD_URL"]  = cfg_upload_url;
@@ -163,124 +166,185 @@ void sendConfigForm(WiFiClient &client, bool saved = false) {
   client.println();
   client.println("<!DOCTYPE html><html><head>");
   client.println("<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">");
-  client.println("<title>ESP32 Config</title>");
+  client.println("<title>ESP32 Configuration</title>");
+
   client.println(
-    "<style>"
-    "body{margin:0;padding:20px;font-family:Helvetica,Arial,sans-serif;background:#f5f5f5;}"
-    ".card{max-width:520px;margin:40px auto;background:#fff;border-radius:10px;"
-      "box-shadow:0 2px 8px rgba(0,0,0,0.12);padding:24px 26px;box-sizing:border-box;}"
-    "h1{margin-top:0;font-size:24px;text-align:center;}"
-    "h2{margin-top:24px;font-size:18px;border-bottom:1px solid #eee;padding-bottom:4px;}"
-    "label{display:block;margin-top:14px;font-weight:bold;font-size:14px;}"
-    "input,select{width:100%;padding:8px 10px;margin-top:6px;border-radius:6px;"
-      "border:1px solid #ccc;box-sizing:border-box;font-size:14px;}"
-    "input:focus,select:focus{outline:none;border-color:#1976d2;box-shadow:0 0 0 2px rgba(25,118,210,0.18);}"
-    "button{margin-top:22px;width:100%;padding:10px 0;font-size:16px;border:none;"
-      "border-radius:999px;background:#1976d2;color:#fff;cursor:pointer;font-weight:bold;}"
-    "button:hover{background:#1458a3;}"
-    ".message{padding:10px 12px;border-radius:6px;background:#e8f5e9;color:#1b5e20;"
-      "border:1px solid #c8e6c9;margin-top:10px;margin-bottom:10px;font-size:14px;}"
-    ".hint{font-size:12px;color:#777;margin-top:4px;}"
-    ".inline{display:flex;gap:8px;}"
-    ".inline > div{flex:1;}"
-    "</style>"
+  "<style>"
+  ":root{"
+  "  --primary:#2563eb;"
+  "  --primary-dark:#1e40af;"
+  "  --bg:#f3f6fb;"
+  "  --card:#ffffff;"
+  "  --text:#1f2937;"
+  "  --muted:#6b7280;"
+  "  --border:#e5e7eb;"
+  "  --error:#dc2626;"
+  "}"
+
+  "*{box-sizing:border-box;}"
+  "body{margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--text);}"
+  ".container{max-width:760px;margin:40px auto;padding:0 20px;}"
+  ".card{background:var(--card);border-radius:16px;box-shadow:0 10px 30px rgba(0,0,0,0.08);padding:32px;}"
+  "h1{text-align:center;margin-top:0;font-size:26px;}"
+
+  ".section{margin-top:28px;padding-top:18px;border-top:1px solid var(--border);}"
+  ".section h2{margin:0 0 10px 0;font-size:18px;}"
+  ".section-desc{font-size:13px;color:var(--muted);margin-bottom:16px;}"
+
+  ".field{margin-bottom:18px;}"
+  "label{display:block;font-weight:600;font-size:14px;margin-bottom:6px;}"
+
+  "input,select{"
+  "  width:100%;padding:10px 12px;border-radius:8px;"
+  "  border:1px solid var(--border);font-size:14px;background:#fafafa;"
+  "}"
+
+  "input:focus,select:focus{outline:none;border-color:var(--primary);background:#fff;box-shadow:0 0 0 3px rgba(37,99,235,0.15);}"
+
+  ".row{display:flex;gap:14px;}"
+  ".row .field{flex:1;}"
+
+  ".description{font-size:12px;color:var(--muted);margin-top:6px;}"
+
+  ".error-field{border-color:var(--error) !important;background:#fff5f5 !important;}"
+  ".error-message{color:var(--error);font-size:13px;margin-top:12px;text-align:center;display:none;}"
+
+  "button{margin-top:20px;width:100%;padding:12px;border:none;border-radius:999px;font-size:15px;font-weight:600;background:var(--primary);color:#fff;cursor:pointer;transition:0.2s;}"
+  "button:hover{background:var(--primary-dark);}"
+
+  ".message{background:#e6f4ea;color:#14532d;padding:12px;border-radius:8px;margin-bottom:16px;font-size:14px;}"
+  "</style>"
   );
+
+  /* ===== VALIDATION SCRIPT ===== */
+  client.println(
+  "<script>"
+  "function validateForm(event){"
+  "  event.preventDefault();"
+  "  let valid=true;"
+  "  const fields=document.querySelectorAll('input, select');"
+  "  fields.forEach(f=>{"
+  "    if(f.type!=='hidden' && f.value.trim()===''){"
+  "      f.classList.add('error-field');"
+  "      valid=false;"
+  "    }else{"
+  "      f.classList.remove('error-field');"
+  "    }"
+  "  });"
+  "  const errorMsg=document.getElementById('errorText');"
+  "  if(!valid){"
+  "    errorMsg.style.display='block';"
+  "    return false;"
+  "  }"
+  "  errorMsg.style.display='none';"
+  "  event.target.submit();"
+  "}"
+  "</script>"
+  );
+
   client.println("</head><body>");
-  client.println("<div class=\"card\">");
-  client.println("<h1>ESP32 Configuration</h1>");
+  client.println("<div class=\"container\"><div class=\"card\">");
+  client.println("<h1>ESP32 Module Configuration</h1>");
 
   if (saved) {
-    client.println("<div class=\"message\"><b>Config saved.</b> You can close this page.</div>");
+    client.println("<div class=\"message\"><strong>Configuration saved successfully.</strong></div>");
   }
 
-  // Use POST so SSID/password/URL won't appear in the browser's URL bar
-  client.println("<form action=\"/save\" method=\"POST\" autocomplete=\"off\">");
+  client.println("<form action=\"/save\" method=\"POST\" autocomplete=\"off\" onsubmit=\"validateForm(event)\">");
   client.println("<input type=\"hidden\" name=\"session\" value=\"" + sessionToken + "\">");
-  
-  // --- Network section ---
+
+  /* ===== GENERAL ===== */
+  client.println("<div class=\"section\">");
+  client.println("<h2>General</h2>");
+  client.println("<div class=\"section-desc\">Basic identification settings for this device.</div>");
+
+  client.println("<div class=\"field\">");
+  client.println("<label>Module Name</label>");
+  client.println("<input type=\"text\" name=\"module_name\" value=\"" + cfg_module_name + "\">");
+  client.println("<div class=\"description\">You can name the module however you want.</div>");
+  client.println("</div>");
+  client.println("</div>");
+
+  /* ===== NETWORK ===== */
+  client.println("<div class=\"section\">");
   client.println("<h2>Network</h2>");
+  client.println("<div class=\"section-desc\">WiFi credentials and communication endpoints.</div>");
 
-  client.println("<label for=\"ssid\">SSID</label>");
-  client.println("<input id=\"ssid\" type=\"text\" name=\"ssid\" value=\"" + cfg_ssid + "\">");
-
-  client.println("<label for=\"password\">Password</label>");
-  client.println("<input id=\"password\" type=\"password\" name=\"password\" value=\"" + cfg_password + "\">");
-  client.println("<div class=\"hint\">Password will be sent in the request body (not visible in the address bar).</div>");
-
-
-    // init url
-  client.println("<label for=\"init_base\">Initialization URL</label>");
-  client.println("<div class=\"hint\">Type in the URL and endpoint where the module is added to the HIVE-HIVE network.</div>");
-  client.println("<div class=\"inline\">");
-  client.println("<div>");
-  client.println("<input id=\"init_base\" type=\"text\" name=\"init_base\" "
-                 "placeholder=\"http://example.com\" value=\"" + initBase + "\">");
-  client.println("<div class=\"hint\">Base URL</div>");
+  client.println("<div class=\"field\">");
+  client.println("<label>WiFi SSID</label>");
+  client.println("<input type=\"text\" name=\"ssid\" value=\"" + cfg_ssid + "\">");
   client.println("</div>");
-  client.println("<div>");
-  client.println("<input id=\"init_endpoint\" type=\"text\" name=\"init_endpoint\" "
-                 "placeholder=\"upload\" value=\"" + initEndpoint + "\">");
-  client.println("<div class=\"hint\">Endpoint (path)</div>");
+
+  client.println("<div class=\"field\">");
+  client.println("<label>WiFi Password</label>");
+  client.println("<input type=\"password\" name=\"password\" value=\"" + cfg_password + "\">");
+  client.println("</div>");
+
+  client.println("<div class=\"row\">");
+  client.println("<div class=\"field\">");
+  client.println("<label>Initialization Base URL</label>");
+  client.println("<input type=\"text\" name=\"init_base\" value=\"" + initBase + "\">");
+  client.println("</div>");
+  client.println("<div class=\"field\">");
+  client.println("<label>Initialization Endpoint</label>");
+  client.println("<input type=\"text\" name=\"init_endpoint\" value=\"" + initEndpoint + "\">");
   client.println("</div>");
   client.println("</div>");
-  client.println("<div class=\"hint\">Server combines these to "
-                 "<code>http://example.com/endpoint</code>.</div>");
 
-
-  // upload url
-  client.println("<label for=\"upload_base\">Upload URL</label>");
-  client.println("<div class=\"hint\">Type in the URL and endpoint where the module should send the images for the hive evaluation.</div>");
-  client.println("<div class=\"inline\">");
-  client.println("<div>");
-  client.println("<input id=\"upload_base\" type=\"text\" name=\"upload_base\" "
-                 "placeholder=\"http://example.com\" value=\"" + uploadBase + "\">");
-  client.println("<div class=\"hint\">Base URL</div>");
+  client.println("<div class=\"row\">");
+  client.println("<div class=\"field\">");
+  client.println("<label>Upload Base URL</label>");
+  client.println("<input type=\"text\" name=\"upload_base\" value=\"" + uploadBase + "\">");
   client.println("</div>");
-  client.println("<div>");
-  client.println("<input id=\"upload_endpoint\" type=\"text\" name=\"upload_endpoint\" "
-                 "placeholder=\"upload\" value=\"" + uploadEndpoint + "\">");
-  client.println("<div class=\"hint\">Endpoint (path)</div>");
+  client.println("<div class=\"field\">");
+  client.println("<label>Upload Endpoint</label>");
+  client.println("<input type=\"text\" name=\"upload_endpoint\" value=\"" + uploadEndpoint + "\">");
   client.println("</div>");
   client.println("</div>");
-  client.println("<div class=\"hint\">Server can combine these as "
-                 "<code>http://example.com/endpoint</code>.</div>");
+  client.println("</div>");
 
-
-  // --- Camera section ---
+  /* ===== CAMERA ===== */
+  client.println("<div class=\"section\">");
   client.println("<h2>Camera</h2>");
+  client.println("<div class=\"section-desc\">Image capture and quality settings.</div>");
 
-  client.println("<label for=\"interval\">Capture interval (ms)</label>");
-  client.println("<input id=\"interval\" type=\"number\" name=\"interval\" min=\"10\" "
-                 "value=\"" + String(cfg_interval_ms) + "\">");
+  client.println("<div class=\"field\">");
+  client.println("<label>Capture Interval (ms)</label>");
+  client.println("<input type=\"number\" name=\"interval\" min=\"10\" value=\"" + String(cfg_interval_ms) + "\">");
+  client.println("</div>");
 
-  client.println("<label for=\"res\">Resolution</label>");
-  client.println("<select id=\"res\" name=\"res\">");
-  client.println("<option value=\"qvga\""  + String(cfg_resolution.equalsIgnoreCase("qvga")  ? " selected" : "") + ">QVGA - 320 x 240</option>");
-  client.println("<option value=\"vga\""   + String(cfg_resolution.equalsIgnoreCase("vga")   ? " selected" : "") + ">VGA - 640 x 480</option>");
-  client.println("<option value=\"qxga\""  + String(cfg_resolution.equalsIgnoreCase("qxga")  ? " selected" : "") + ">QXGA - 800 x 600</option>");
-  client.println("<option value=\"sxga\""  + String(cfg_resolution.equalsIgnoreCase("sxga")  ? " selected" : "") + ">SXGA - 1280 x 1024</option>");
-  client.println("<option value=\"uxga\""  + String(cfg_resolution.equalsIgnoreCase("uxga")  ? " selected" : "") + ">UXGA - 1600 x 1200</option>");
+  client.println("<div class=\"field\">");
+  client.println("<label>Resolution</label>");
+  client.println("<select name=\"res\">");
+  client.println("<option value=\"qvga\""  + String(cfg_resolution.equalsIgnoreCase("qvga")  ? " selected" : "") + ">QVGA - 320x240</option>");
+  client.println("<option value=\"vga\""   + String(cfg_resolution.equalsIgnoreCase("vga")   ? " selected" : "") + ">VGA - 640x480</option>");
+  client.println("<option value=\"qxga\""  + String(cfg_resolution.equalsIgnoreCase("qxga")  ? " selected" : "") + ">QXGA - 800x600</option>");
+  client.println("<option value=\"sxga\""  + String(cfg_resolution.equalsIgnoreCase("sxga")  ? " selected" : "") + ">SXGA - 1280x1024</option>");
+  client.println("<option value=\"uxga\""  + String(cfg_resolution.equalsIgnoreCase("uxga")  ? " selected" : "") + ">UXGA - 1600x1200</option>");
   client.println("</select>");
-  client.println("<div class=\"hint\">Form will submit values like <code>qvga</code>, "
-                 "<code>vga</code>, <code>sxga</code>, etc.</div>");
+  client.println("</div>");
 
-  client.println("<label for=\"vflip\">Vertical flip (0/1)</label>");
-  client.println("<input id=\"vflip\" type=\"number\" name=\"vflip\" min=\"0\" max=\"1\" "
-                 "value=\"" + String(cfg_vflip) + "\">");
+  client.println("<div class=\"field\">");
+  client.println("<label>Vertical Flip (0 or 1)</label>");
+  client.println("<input type=\"number\" name=\"vflip\" min=\"0\" max=\"1\" value=\"" + String(cfg_vflip) + "\">");
+  client.println("</div>");
 
-  client.println("<label for=\"bright\">Brightness</label>");
-  client.println("<input id=\"bright\" type=\"number\" name=\"bright\" "
-                 "value=\"" + String(cfg_brightness) + "\">");
+  client.println("<div class=\"field\">");
+  client.println("<label>Brightness</label>");
+  client.println("<input type=\"number\" name=\"bright\" value=\"" + String(cfg_brightness) + "\">");
+  client.println("</div>");
 
-  client.println("<label for=\"sat\">Saturation</label>");
-  client.println("<input id=\"sat\" type=\"number\" name=\"sat\" "
-                 "value=\"" + String(cfg_saturation) + "\">");
+  client.println("<div class=\"field\">");
+  client.println("<label>Saturation</label>");
+  client.println("<input type=\"number\" name=\"sat\" value=\"" + String(cfg_saturation) + "\">");
+  client.println("</div>");
 
-  client.println("<button type=\"submit\">Save configuration</button>");
-  client.println("</form>");
+  client.println("</div>");
 
-  client.println("</div>"); // .card
-  client.println("</body></html>");
+  client.println("<button type=\"submit\">Save Configuration</button>");
+  client.println("<div id=\"errorText\" class=\"error-message\">Enter missing details before saving configuration.</div>");
+
+  client.println("</form></div></div></body></html>");
   client.println();
 }
 
@@ -360,6 +424,8 @@ void runAccessPoint() {
                   // Only treat as valid if session token matches
                   String sessionParam = getParam(query, "session");
                   if (sessionParam == sessionToken) {
+                    cfg_module_name = getParam(query, "module_name");
+
                     cfg_ssid        = getParam(query, "ssid");
                     cfg_password    = getParam(query, "password");
 

@@ -237,6 +237,11 @@ bool loadConfig(esp_config_t *esp_config) {
   }
 
   strlcpy(
+    esp_config->module_name,
+    esp_config_doc["NETWORK"]["MODULE_NAME"] | "New Module",
+    sizeof(esp_config->module_name)
+  );
+  strlcpy(
     esp_config->wifi_config.SSID,
     esp_config_doc["NETWORK"]["SSID"] | "",
     sizeof(esp_config->wifi_config.SSID)
@@ -349,7 +354,7 @@ void initNewModuleOnServer(esp_config_t *esp_config) {
   if (WiFi.status() == WL_CONNECTED) {
     HTTPClient http;
 
-    Serial.printf("------ INIT_URL: %s\n", esp_config->INIT_URL);
+    Serial.printf("------ MODULE NAME: %s\n", esp_config->module_name);
 
     http.begin(esp_config->INIT_URL);
     //http.begin("http://192.168.0.36:8002/new_module");
@@ -357,9 +362,11 @@ void initNewModuleOnServer(esp_config_t *esp_config) {
 
     StaticJsonDocument<200> doc;
     doc["esp_id"] = String(esp_config->esp_ID);
+    doc["module_name"] = esp_config->module_name;
     doc["latitude"] = String(esp_config->geolocation.latitude);
     doc["longitude"] = String(esp_config->geolocation.longitude);
     doc["battery_level"] = String(esp_config->battery_level);
+
 
     String jsonData;
     serializeJson(doc, jsonData);
