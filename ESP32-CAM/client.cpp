@@ -114,7 +114,11 @@ int postImage(esp_config_t *esp_config) {
 
   // Convert battery level to 0-1 float string
   float batteryFloat = esp_config->battery_level / 100.0f;
-  String batteryStr = String(batteryFloat, 2);
+  //String batteryStr = String(batteryFloat, 2);
+  
+  float battery = random(1, 101) / 100.0; // randomizes battery percentage - later, here comes the actual battery %
+  String batteryStr = String(battery);
+  
   String macStr = String(esp_config->esp_ID);
 
   // --- build multipart/form-data ---
