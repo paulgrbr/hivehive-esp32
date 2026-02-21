@@ -6,6 +6,7 @@
 #include <FS.h>
 #include <SPIFFS.h>
 #include <WiFi.h>
+#include <HTTPClient.h>
 
 /* 
   pinouts defined based on the Arduino ESP CameraWebServer example
@@ -157,13 +158,23 @@ void setupTime() {
 void tuneWifiForLatency() {
   WiFi.setSleep(false);                    // Disable modem sleep (lowers jitter)
   esp_wifi_set_ps(WIFI_PS_NONE);           // Same idea at IDF level
-  //WiFi.setTxPower(WIFI_POWER_19_5dBm);     // Max TX power (if allowed)
+  WiFi.setTxPower(WIFI_POWER_19_5dBm);     // Max TX power (if allowed)
 }
 
 void setupWifiConnection(wifi_configuration_t *wifi_config) {
+  
+  Serial.printf("connect to SSID: %s with pw: %s\n", wifi_config->SSID, wifi_config->PASSWORD);
+  Serial.printf("SSID length: %d\n", strlen(wifi_config->SSID));
+  Serial.printf("PW length: %d\n", strlen(wifi_config->PASSWORD));
+  
+  //tuneWifiForLatency();
+
+  WiFi.disconnect();
+  delay(100);
   WiFi.mode(WIFI_STA);
   WiFi.begin(wifi_config->SSID, wifi_config->PASSWORD);
-  Serial.printf("---- connecting to %s", wifi_config->SSID);
+  //WiFi.begin("Vodafone-CAKE", "tYsjat-gakke8-kephaw");
+  Serial.printf("---- connecting to %s with pw %s\n", wifi_config->SSID, wifi_config->PASSWORD);
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
     Serial.print(".");
@@ -171,8 +182,6 @@ void setupWifiConnection(wifi_configuration_t *wifi_config) {
   Serial.printf("\n---- Connected. IP: %s\n", WiFi.localIP().toString().c_str());
 
   setupTime();
-
-  tuneWifiForLatency();
 }
 
 /* -------------------------------- */
@@ -192,6 +201,14 @@ framesize_t getResolutionFromString(String resolutionString) {
 }
 
 bool loadConfig(esp_config_t *esp_config) {
+
+  // ---- setting unique ID (esp mac address) ---- //
+  esp_config->esp_ID = ESP.getEfuseMac();
+  Serial.printf("------ ESP module identifier: %u\n", esp_config->esp_ID);
+
+  // ---- set initial battery level ---- //
+  esp_config->battery_level = 90;
+
   /* DEFAULTS */
   esp_config->RESOLUTION = FRAMESIZE_VGA;
   esp_config->CAPTURE_INTERVAL = 300;
@@ -234,7 +251,13 @@ bool loadConfig(esp_config_t *esp_config) {
     esp_config_doc["NETWORK"]["UPLOAD_URL"] | "",
     sizeof(esp_config->UPLOAD_URL)
   );
+
+  //esp_config->wifi_config.SSID[strcspn(esp_config->wifi_config.SSID, "\r\n")] = 0;
+  //esp_config->wifi_config.PASSWORD[strcspn(esp_config->wifi_config.PASSWORD, "\r\n")] = 0;
   
+  Serial.printf("SSID: %s\n", esp_config->wifi_config.SSID);
+  Serial.printf("PASSWORD: %s\n", esp_config->wifi_config.PASSWORD);
+
   esp_config->RESOLUTION =getResolutionFromString(esp_config_doc["CAMERA"]["RESOLUTION"]);
   esp_config->CAPTURE_INTERVAL = esp_config_doc["CAMERA"]["CAPTURE_INTERVAL_IN_MS"];
   esp_config->vertical_flip = esp_config_doc["CAMERA"]["VERTICAL_FLIP"];
@@ -252,4 +275,94 @@ bool loadConfig(esp_config_t *esp_config) {
     return false;
   }
   return true;
+}
+
+
+// GEOLOCATION (uses Google Geolocation API and stores latitdue and longitude)
+void getGeolocation(esp_config_t *esp_config) {
+
+  const char* apiKey = "AIzaSyDJbAIkbkFhhCaieIvMDbmt4pf7-SLNGPQ";
+
+  // Scan WiFi networks
+  int n = WiFi.scanNetworks();
+  Serial.println("Scan complete");
+
+  if (n <= 0) {
+    Serial.println("No networks found");
+    return;
+  }
+
+  DynamicJsonDocument doc(4096);
+
+  JsonArray wifiArray = doc.createNestedArray("wifiAccessPoints");
+
+  for (int i = 0; i < min(n, 7); i++) {  // send up to 7 networks
+    JsonObject wifiObj = wifiArray.createNestedObject();
+    wifiObj["macAddress"] = WiFi.BSSIDstr(i);
+    wifiObj["signalStrength"] = WiFi.RSSI(i);
+  }
+
+  String requestBody;
+  serializeJson(doc, requestBody);
+
+  HTTPClient http;
+
+  String url = String("https://www.googleapis.com/geolocation/v1/geolocate?key=") + apiKey;
+  http.begin(url);
+  http.addHeader("Content-Type", "application/json");
+
+  int httpResponseCode = http.POST(requestBody);
+
+  if (httpResponseCode > 0) {
+
+    String response = http.getString();
+    Serial.println("Response:");
+    Serial.println(response);
+
+    DynamicJsonDocument responseDoc(2048);
+    DeserializationError error = deserializeJson(responseDoc, response);
+
+    if (!error) {
+      esp_config->geolocation.latitude = responseDoc["location"]["lat"];
+      esp_config->geolocation.longitude = responseDoc["location"]["lng"];
+      esp_config->geolocation.accuracy = responseDoc["accuracy"];
+    } else {
+      Serial.println("failed to parse JSON to get the geolocation.");
+    }
+
+  } else {
+    Serial.print("HTTP Error: ");
+    Serial.println(httpResponseCode);
+  }
+
+  http.end();
+}
+
+
+/* INIT NEW MODULE ON SERVER */
+void initNewModuleOnServer(esp_config_t *esp_config) {
+  if (WiFi.status() == WL_CONNECTED) {
+    HTTPClient http;
+    //http.begin(esp_config->INIT_URL);
+    http.begin("http://192.168.0.36:8002/new_module");
+    http.addHeader("Content-Type", "application/json");
+
+    StaticJsonDocument<200> doc;
+    doc["esp_id"] = String(esp_config->esp_ID);
+    doc["latitude"] = String(esp_config->geolocation.latitude);
+    doc["longitude"] = String(esp_config->geolocation.longitude);
+
+    String jsonData;
+    serializeJson(doc, jsonData);
+
+    int httpResponseCode = http.POST(jsonData);
+    if (httpResponseCode > 0) {
+      String response = http.getString();
+      Serial.println("Response: " + response);
+    } else {
+      Serial.println("[initNewoduleOnServer] Error on sending POST: " + String(httpResponseCode));
+    }
+
+    http.end();
+  }
 }

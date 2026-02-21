@@ -3,6 +3,7 @@
 #include "host.h"
 #include "client.h"
 #include <Arduino.h>
+#include <SPIFFS.h>
 
 const char *CONFIG_FILE_PATH = "/config.json";
 esp_config_t esp_config;
@@ -16,6 +17,12 @@ int counter = 0;
 */
 void setup() {
   Serial.begin(115200);
+
+  if (!SPIFFS.begin(true)) {
+    Serial.println("SPIFFS Mount Failed");
+    return;
+  }
+
   Serial.setDebugOutput(true);
   Serial.println();
   delay(200);
@@ -23,6 +30,7 @@ void setup() {
   Serial.println("------ ESP STARTED ------");
 
   strlcpy(esp_config.CONFIG_FILE, CONFIG_FILE_PATH, sizeof(esp_config.CONFIG_FILE));
+
 
   /*
     ESP opens WiFi access point to receive the configuration from user input
@@ -55,6 +63,22 @@ void setup() {
 
   Serial.printf("[ESP] CONFIGURING WIFI CONNECTION TO %s\n", esp_config.wifi_config.SSID);
   setupWifiConnection(&esp_config.wifi_config);
+
+
+  // GEOLOCATION [TEST]
+  getGeolocation(&esp_config);
+
+  Serial.print("Latitude: ");
+  Serial.println(esp_config.geolocation.latitude, 6);
+
+  Serial.print("Longitude: ");
+  Serial.println(esp_config.geolocation.longitude, 6);
+
+  Serial.print("Accuracy (m): ");
+  Serial.println(esp_config.geolocation.accuracy);
+
+  // ---- Initialize new module on server ---- //
+  initNewModuleOnServer(&esp_config);
 
   Serial.println("[ESP] SETUP COMPLETE");
   Serial.println("");

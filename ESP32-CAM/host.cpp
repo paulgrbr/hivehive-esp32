@@ -65,6 +65,8 @@ String getParam(const String& query, const String& name) {
   -------------------------------------
 */
 void loadConfig() {
+
+
   if (!SPIFFS.exists("/config.json")) {
     Serial.println("config.json not found, using defaults");
     return;
