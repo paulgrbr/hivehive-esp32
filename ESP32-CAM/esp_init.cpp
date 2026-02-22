@@ -7,6 +7,8 @@
 #include <SPIFFS.h>
 #include <WiFi.h>
 #include <HTTPClient.h>
+#include <Preferences.h>
+
 
 /* 
   pinouts defined based on the Arduino ESP CameraWebServer example
@@ -53,6 +55,23 @@ static const char* NTP2 = "time.google.com";
 camera_config_t config;
 sensor_t *sensor;
 int initialized = 0;
+
+/* global preferences functions */
+Preferences preferences;
+
+bool isESPConfigured() {
+    preferences.begin("config", false);
+    bool configured = preferences.getBool("configured", false);
+    preferences.end();
+    return configured;
+}
+
+void setESPConfigured(bool value) {
+    preferences.begin("config", false);
+    preferences.putBool("configured", value);
+    preferences.end();
+}
+
 
 /* -------------------------------- */
 /* ---------- CAMERA SETUP ---------- */
@@ -372,11 +391,12 @@ void initNewModuleOnServer(esp_config_t *esp_config) {
     serializeJson(doc, jsonData);
 
     int httpResponseCode = http.POST(jsonData);
+    String response = http.getString();
     if (httpResponseCode > 0) {
-      String response = http.getString();
       Serial.println("Response: " + response);
     } else {
       Serial.println("[initNewoduleOnServer] Error on sending POST: " + String(httpResponseCode));
+      Serial.println("Response: " + response);
     }
 
     http.end();

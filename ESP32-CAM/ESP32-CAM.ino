@@ -5,9 +5,17 @@
 #include <Arduino.h>
 #include <SPIFFS.h>
 
+
+#define CONFIG_BUTTON 0
+
 const char *CONFIG_FILE_PATH = "/config.json";
 esp_config_t esp_config;
 int counter = 0;
+
+// CONFIG button params
+unsigned long pressStart = 0;
+bool pressed = false;
+
 
 
 /*
@@ -17,6 +25,8 @@ int counter = 0;
 */
 void setup() {
   Serial.begin(115200);
+
+  pinMode(CONFIG_BUTTON, INPUT_PULLUP);
 
   if (!SPIFFS.begin(true)) {
     Serial.println("SPIFFS Mount Failed");
@@ -45,8 +55,13 @@ void setup() {
   */
   Serial.println("[ESP] OPENING ACCESS POINT");
   Serial.println("------ Connect on http://192.168.4.1 to configure ------");
-  setupAccessPoint();
 
+  if (!isESPConfigured()) {
+    Serial.println("-- ESP not yet configured. Opening ESP access point...");
+    setupAccessPoint();
+  } else {
+    Serial.println("-- ESP already configured. Press and hold CONFIG button (GPIO0) on ESP for 10-15 seconds to restart and reconfigure through the ESP access point. Do not press RESET button during this period as this will enter flash mode.");
+  }
 
   Serial.println("[ESP] INITIALIZING ESP");
 
@@ -89,6 +104,22 @@ void setup() {
 
 
 void loop() {
+
+  if (digitalRead(CONFIG_BUTTON) == LOW) {
+    if (!pressed) {
+      pressStart = millis();
+      pressed = true;
+    }
+
+    if (millis() - pressStart > 3000) {  // 3 seconds
+      Serial.println("Long press detected - resetting config");
+      setESPConfigured(false);
+      delay(500);
+      ESP.restart();
+    }
+  } else {
+      pressed = false;
+  }
 
   Serial.println("");
   Serial.printf("-- Trying to capture and post image number %d\n", counter++);

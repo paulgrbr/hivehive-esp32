@@ -3,6 +3,7 @@
 
 #include "esp_camera.h"
 
+
 typedef struct {
   char SSID[64];
   char PASSWORD[64];
@@ -21,6 +22,7 @@ typedef struct {
   uint64_t esp_ID;
   char module_name[64];
   uint8_t battery_level;
+  bool is_configured;
 
   /* connectivity */
   wifi_configuration_t wifi_config;
@@ -37,6 +39,8 @@ typedef struct {
 } esp_config_t;
 
 
+bool isESPConfigured();
+void setESPConfigured(bool value);
 bool loadConfig(esp_config_t *esp_config);
 void initEspPinout();
 void initEspCamera(framesize_t resolution);

@@ -134,6 +134,8 @@ void saveConfig() {
     Serial.println("Failed to write JSON to file");
   }
   f.close();
+
+  setESPConfigured(true);
 }
 
 /*
